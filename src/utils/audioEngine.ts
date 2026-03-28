@@ -3,12 +3,41 @@
 import type { PaletteChord } from "./musicTheory";
 
 let audioContext: AudioContext | null = null;
+let masterGain: GainNode | null = null;
+let compressor: DynamicsCompressorNode | null = null;
 
 function getAudioContext(): AudioContext {
   if (!audioContext) {
-    audioContext = new AudioContext();
+    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    // マスターコンプレッサー: 音割れを防ぎ、全体の音量を均一化する
+    compressor = audioContext.createDynamicsCompressor();
+    compressor.threshold.setValueAtTime(-15, audioContext.currentTime);
+    compressor.knee.setValueAtTime(30, audioContext.currentTime);
+    compressor.ratio.setValueAtTime(12, audioContext.currentTime);
+    compressor.attack.setValueAtTime(0.003, audioContext.currentTime);
+    compressor.release.setValueAtTime(0.25, audioContext.currentTime);
+    
+    // マスターゲイン: 全体の音量を微調整（ clipping 回避のため少し下げる）
+    masterGain = audioContext.createGain();
+    masterGain.gain.setValueAtTime(0.8, audioContext.currentTime);
+    
+    // 接続: 各音源 -> masterGain -> compressor -> destination
+    masterGain.connect(compressor);
+    compressor.connect(audioContext.destination);
   }
   return audioContext;
+}
+
+/**
+ * 音源をマスターゲインに接続するためのヘルパー
+ */
+function connectToMaster(node: AudioNode) {
+  if (masterGain) {
+    node.connect(masterGain);
+  } else {
+    node.connect(getAudioContext().destination);
+  }
 }
 
 /**
@@ -25,18 +54,15 @@ function midiToFreq(midi: number): number {
 export function playChord(chord: PaletteChord, durationSec: number = 0.8, time?: number): void {
   const ctx = getAudioContext();
   
-  // iOS/Androidなど、ユーザーアクション直後にresumeが必要な場合への対応
   if (ctx.state === "suspended") {
     ctx.resume();
   }
 
   const now = time !== undefined ? time : ctx.currentTime;
   
-  // ボイシングの最適化（クローズド・ボイシング・アプローチ）
+  // ボイシングの最適化
   const notes = chord.intervals.map((interval, index) => {
     let note = chord.rootNote + interval;
-    // ルート音(index === 0) 以外の構成音が高くなりすぎるのを防ぐ
-    // C5 (MIDI: 72) 以上になる場合はオクターブ(12半音)下げて転回形にし、Diatonicの音域に馴染ませる
     if (index > 0) {
       while (note >= 72) {
         note -= 12;
@@ -45,39 +71,33 @@ export function playChord(chord: PaletteChord, durationSec: number = 0.8, time?:
     return note;
   });
 
-  // サウンドに厚みを持たせるため、ベース音を追加
-  // オンコードでbassNoteOverrideが設定されている場合はその音をルート化し、指定ない場合は元のrootNoteを使う
   const bass = chord.bassNoteOverride !== undefined ? chord.bassNoteOverride : chord.rootNote;
-  notes.push(bass - 12); // 全体的にベース音域にするため1オクターブ下げる
+  notes.push(bass - 12);
 
   const duration = durationSec;
   const fadeOut = duration * 0.4;
 
   notes.forEach((note) => {
-    // メインオシレーター（三角波でピアノ風）
     const osc = ctx.createOscillator();
     osc.type = "triangle";
-    osc.frequency.value = midiToFreq(note);
+    osc.frequency.setValueAtTime(midiToFreq(note), now);
 
-    // 倍音追加用オシレーター（サイン波、オクターブ上で弱く）
     const osc2 = ctx.createOscillator();
     osc2.type = "sine";
-    osc2.frequency.value = midiToFreq(note) * 2;
+    osc2.frequency.setValueAtTime(midiToFreq(note) * 2, now);
 
-    // ゲインノード（エンベロープ）
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.15, now);
-    gain.gain.exponentialRampToValueAtTime(0.12, now + 0.05);
+    gain.gain.setValueAtTime(0.12, now); // 少し下げ
     gain.gain.exponentialRampToValueAtTime(0.001, now + duration + fadeOut);
 
     const gain2 = ctx.createGain();
-    gain2.gain.setValueAtTime(0.04, now);
+    gain2.gain.setValueAtTime(0.03, now); // 少し下げ
     gain2.gain.exponentialRampToValueAtTime(0.001, now + duration + fadeOut);
 
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    connectToMaster(gain);
     osc2.connect(gain2);
-    gain2.connect(ctx.destination);
+    connectToMaster(gain2);
 
     osc.start(now);
     osc.stop(now + duration + fadeOut + 0.1);
@@ -93,12 +113,12 @@ function playKick(ctx: AudioContext, time: number) {
   const gain = ctx.createGain();
   
   osc.connect(gain);
-  gain.connect(ctx.destination);
+  connectToMaster(gain);
   
   osc.frequency.setValueAtTime(150, time);
   osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
   
-  gain.gain.setValueAtTime(0.8, time);
+  gain.gain.setValueAtTime(0.5, time); // 0.8 -> 0.5 (クリッピング防止)
   gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
   
   osc.start(time);
@@ -115,12 +135,12 @@ function playSnare(ctx: AudioContext, time: number) {
   
   osc1.connect(gain);
   osc2.connect(gain);
-  gain.connect(ctx.destination);
+  connectToMaster(gain);
   
   osc1.frequency.setValueAtTime(250, time);
   osc2.frequency.setValueAtTime(400, time);
   
-  gain.gain.setValueAtTime(0.3, time);
+  gain.gain.setValueAtTime(0.2, time); // 0.3 -> 0.2
   gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
   
   osc1.start(time);
@@ -135,11 +155,11 @@ function playHiHat(ctx: AudioContext, time: number) {
   
   osc.type = "square";
   osc.connect(gain);
-  gain.connect(ctx.destination);
+  connectToMaster(gain);
   
   osc.frequency.setValueAtTime(8000, time);
   
-  gain.gain.setValueAtTime(0.05, time);
+  gain.gain.setValueAtTime(0.03, time); // 0.05 -> 0.03
   gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
   
   osc.start(time);
@@ -211,7 +231,7 @@ function nextNote() {
 function scheduler() {
   const ctx = getAudioContext();
   
-  while (nextNoteTime < ctx.currentTime + 0.1) {
+  while (nextNoteTime < ctx.currentTime + 0.2) {
     scheduleNote(current16thNote, nextNoteTime);
     nextNote();
     
@@ -260,7 +280,7 @@ export function playPaletteSequence(
   
   current16thNote = 0;
   currentChordIndex = 0;
-  nextNoteTime = ctx.currentTime + 0.05; // わずかな遅延を入れて安全にスケジュール
+  nextNoteTime = ctx.currentTime + 0.1; // 0.05 -> 0.1 (安全な開始バッファ)
   isPlaying = true;
 
   scheduler();

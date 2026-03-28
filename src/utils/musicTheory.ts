@@ -220,6 +220,8 @@ export function getNonDiatonicChords(key: Key): NonDiatonicChord[] {
   // === Modal Interchange (同主調借用など) ===
   const subdmDefs = [
     { offset: 5, suffix: "m", intervals: [0, 3, 7], label: "IVm" },
+    { offset: 7, suffix: "m", intervals: [0, 3, 7], label: "vm" },
+    { offset: 7, suffix: "m7", intervals: [0, 3, 7, 10], label: "vm7" },
     { offset: 10, suffix: "", intervals: [0, 4, 7], label: "♭VII" },
     { offset: 8, suffix: "", intervals: [0, 4, 7], label: "♭VI" },
     { offset: 3, suffix: "", intervals: [0, 4, 7], label: "♭III" },
