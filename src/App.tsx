@@ -22,6 +22,8 @@ function App() {
   const [bpm, setBpm] = useState<number>(100);
   const [drumPattern, setDrumPattern] = useState<"none" | "4beat" | "8beat" | "16beat">("none");
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isLooping, setIsLooping] = useState<boolean>(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [history, setHistory] = useState<PaletteChord[][]>([]);
 
 
@@ -43,23 +45,49 @@ function App() {
 
   const handleDiatonicClick = (chord: DiatonicChord, type: "triad" | "7th" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13") => {
     const paletteChord = diatonicToPalette(chord, type);
-    const sustainSec = (60 / bpm) * 2; // BPMから計算して同じ長さをデフォルトにする
+    const sustainSec = (60 / bpm) * 2;
     playChord(paletteChord, sustainSec);
-    setPalette((prev) => [...prev, paletteChord]);
+    
+    if (editingIndex !== null) {
+      setPalette((prev) => {
+        const next = [...prev];
+        next[editingIndex] = paletteChord;
+        return next;
+      });
+      setEditingIndex(null);
+    } else {
+      setPalette((prev) => [...prev, paletteChord]);
+    }
   };
 
   const handleNonDiatonicClick = (paletteChord: PaletteChord) => {
     const sustainSec = (60 / bpm) * 2;
     playChord(paletteChord, sustainSec);
-    setPalette((prev) => [...prev, paletteChord]);
+    
+    if (editingIndex !== null) {
+      setPalette((prev) => {
+        const next = [...prev];
+        next[editingIndex] = paletteChord;
+        return next;
+      });
+      setEditingIndex(null);
+    } else {
+      setPalette((prev) => [...prev, paletteChord]);
+    }
+  };
+
+
+  const handleUndo = () => {
+    setPalette((prev) => prev.slice(0, -1));
   };
 
   const handleRemove = (index: number) => {
     setPalette((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleUndo = () => {
-    setPalette((prev) => prev.slice(0, -1));
+    if (editingIndex === index) {
+      setEditingIndex(null);
+    } else if (editingIndex !== null && editingIndex > index) {
+      setEditingIndex(editingIndex - 1);
+    }
   };
 
   const handleClear = () => {
@@ -68,12 +96,13 @@ function App() {
 
   const handleBassChange = (bassNote: number, noteName: string) => {
     if (palette.length === 0) return;
+    const targetIdx = editingIndex !== null ? editingIndex : palette.length - 1;
     const newPalette = [...palette];
-    const target = newPalette[newPalette.length - 1];
+    const target = newPalette[targetIdx];
     
     const originalName = target.displayName.split("/")[0];
     
-    newPalette[newPalette.length - 1] = {
+    newPalette[targetIdx] = {
       ...target,
       bassNoteOverride: bassNote,
       displayName: `${originalName}/${noteName}`,
@@ -81,12 +110,14 @@ function App() {
     
     setPalette(newPalette);
     const sustainSec = (60 / bpm) * 2;
-    playChord(newPalette[newPalette.length - 1], sustainSec);
+    playChord(newPalette[targetIdx], sustainSec);
+    
+    // 分数コード変更後も編集モードは維持した方が使いやすい（色々なベース音を試すため）
   };
 
   const handlePlayAll = () => {
     setIsPlaying(true);
-    playPaletteSequence(palette, bpm, drumPattern, () => {
+    playPaletteSequence(palette, bpm, drumPattern, isLooping, () => {
       setIsPlaying(false);
     });
   };
@@ -107,9 +138,14 @@ function App() {
     setPalette(history[index]);
   };
 
+  const handleRemoveFromHistory = (index: number) => {
+    setHistory((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleKeyChange = (key: Key) => {
     setSelectedKey(key);
     setPalette([]);
+    setEditingIndex(null);
   };
 
   return (
@@ -159,27 +195,31 @@ function App() {
           )}
         </div>
 
-        <div className="palette-container">
-          <CompositionPalette
-            palette={palette}
-            bpm={bpm}
-            onBpmChange={setBpm}
-            drumPattern={drumPattern}
-            onDrumPatternChange={setDrumPattern}
-            isPlaying={isPlaying}
-            onRemove={handleRemove}
-            onUndo={handleUndo}
-            onClear={handleClear}
-            onPlayAll={handlePlayAll}
-            onStop={handleStop}
-            history={history}
-            onSaveToHistory={handleSaveToHistory}
-            onLoadFromHistory={handleLoadFromHistory}
-          />
-        </div>
+        <CompositionPalette
+          palette={palette}
+          bpm={bpm}
+          onBpmChange={setBpm}
+          drumPattern={drumPattern}
+          onDrumPatternChange={setDrumPattern}
+          isPlaying={isPlaying}
+          onUndo={handleUndo}
+          onRemove={handleRemove}
+          onClear={handleClear}
+          onPlayAll={handlePlayAll}
+          onStop={handleStop}
+          isLooping={isLooping}
+          onToggleLoop={() => setIsLooping(!isLooping)}
+          history={history}
+          onSaveToHistory={handleSaveToHistory}
+          onLoadFromHistory={handleLoadFromHistory}
+          onRemoveFromHistory={handleRemoveFromHistory}
+          editingIndex={editingIndex}
+          onEditingIndexChange={(idx) => setEditingIndex(prev => prev === idx ? null : idx)}
+        />
       </main>
       <footer className="footer">
         <p>Chord Palette — 直感的にコード進行を組み立てよう</p>
+        <p className="version-info">ver.1.0.1</p>
       </footer>
     </div>
   );

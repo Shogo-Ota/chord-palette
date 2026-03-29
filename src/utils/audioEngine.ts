@@ -177,6 +177,7 @@ let sequencePalette: PaletteChord[] = [];
 let sequenceBpm = 120;
 let sequencePattern: "none" | "4beat" | "8beat" | "16beat" = "none";
 let sequenceOnStop: (() => void) | null = null;
+let sequenceIsLooping = false; // ループ状態
 
 function scheduleNote(beatNumber: number, time: number) {
   const ctx = getAudioContext();
@@ -239,15 +240,21 @@ function scheduler() {
     const beatPerChord = 8;
     const totalBeats = sequencePalette.length * beatPerChord;
     if (current16thNote >= totalBeats) {
-      // 最後のコードがスケジュールされたので、実際の音が終わる頃合いで停止関数を呼ぶ
-      const sustainSec = (60 / sequenceBpm) * 2;
-      window.setTimeout(() => {
-        if (isPlaying && sequenceOnStop) {
-          sequenceOnStop();
-        }
-        stopPaletteSequence();
-      }, sustainSec * 1000);
-      return; 
+      if (sequenceIsLooping) {
+        // ループ再生: カウンターをリセットして継続
+        current16thNote = 0;
+        currentChordIndex = 0;
+      } else {
+        // 通常再生: 最後のコードがスケジュールされたので、実際の音が終わる頃合いで停止関数を呼ぶ
+        const sustainSec = (60 / sequenceBpm) * 2;
+        window.setTimeout(() => {
+          if (isPlaying && sequenceOnStop) {
+            sequenceOnStop();
+          }
+          stopPaletteSequence();
+        }, sustainSec * 1000);
+        return; 
+      }
     }
   }
 
@@ -260,6 +267,7 @@ export function playPaletteSequence(
   palette: PaletteChord[],
   bpm: number,
   pattern: "none" | "4beat" | "8beat" | "16beat",
+  isLooping: boolean, // 引数を追加
   onStop: () => void
 ): void {
   const ctx = getAudioContext();
@@ -277,6 +285,7 @@ export function playPaletteSequence(
   sequenceBpm = bpm;
   sequencePattern = pattern;
   sequenceOnStop = onStop;
+  sequenceIsLooping = isLooping; // 保存
   
   current16thNote = 0;
   currentChordIndex = 0;

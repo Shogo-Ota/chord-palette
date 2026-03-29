@@ -7,7 +7,6 @@ interface OnChordPaneProps {
 }
 
 export default function OnChordPane({ targetChord, onBassSelect }: OnChordPaneProps) {
-  // ベース音として C4(60) 〜 B4(71) をボタンとしてならべる
   const bassNotes = KEYS.map((key, index) => ({
     name: key,
     midi: 60 + index,
@@ -16,8 +15,8 @@ export default function OnChordPane({ targetChord, onBassSelect }: OnChordPanePr
   if (!targetChord) {
     return (
       <section className="onchord-pane empty-state">
-        <div className="section-header">
-          <h2 className="section-title">On-Chord (Bass)</h2>
+        <div className="pane-info-row">
+          <span className="pane-info-label">On-Chord</span>
           <p className="section-desc">直前に追加したコードのベース音を変更します</p>
         </div>
         <div className="onchord-empty">
@@ -27,13 +26,12 @@ export default function OnChordPane({ targetChord, onBassSelect }: OnChordPanePr
     );
   }
 
-  // targetChord の名前（/以下を除外した元の名前）を取得
   const originalName = targetChord.displayName.split("/")[0];
 
   return (
     <section className="onchord-pane">
-      <div className="section-header">
-        <h2 className="section-title">On-Chord (Bass)</h2>
+      <div className="pane-info-row">
+        <span className="pane-info-label">On-Chord</span>
         <p className="section-desc">直前に追加したコードのベース音を変更します</p>
       </div>
 
@@ -44,7 +42,6 @@ export default function OnChordPane({ targetChord, onBassSelect }: OnChordPanePr
 
       <div className="bass-grid">
         {bassNotes.map((note) => {
-          // 現在設定中のベース音かどうか判定
           const isActive =
             targetChord.bassNoteOverride !== undefined
               ? targetChord.bassNoteOverride % 12 === note.midi % 12

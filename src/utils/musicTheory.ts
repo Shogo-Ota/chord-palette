@@ -167,11 +167,13 @@ export type NonDiatonicCategory = "secdom" | "subdm" | "tritone" | "dim" | "aug"
 
 export interface NonDiatonicChord {
   name: string;
+  name7th?: string;
   label: string;
   category: NonDiatonicCategory;
   categoryLabel: string;
   rootNote: number;
   intervals: number[];
+  intervals7th?: number[];
   function: ChordFunction;
 }
 
@@ -207,37 +209,41 @@ export function getNonDiatonicChords(key: Key): NonDiatonicChord[] {
     const rootIndex = (keyIndex + rootInterval) % 12;
     const rootName = KEYS[rootIndex];
     chords.push({
-      name: rootName + "7",
+      name: rootName + "7", // セカンダリードミナントは基本的に7th
       label,
       category: "secdom",
       categoryLabel: CATEGORY_LABELS.secdom,
       rootNote: 60 + keyIndex + rootInterval,
-      intervals: [0, 4, 7, 10], // dominant 7th
+      intervals: [0, 4, 7, 10],
       function: "D",
     });
   }
 
   // === Modal Interchange (同主調借用など) ===
   const subdmDefs = [
-    { offset: 5, suffix: "m", intervals: [0, 3, 7], label: "IVm" },
-    { offset: 7, suffix: "m", intervals: [0, 3, 7], label: "vm" },
-    { offset: 7, suffix: "m7", intervals: [0, 3, 7, 10], label: "vm7" },
-    { offset: 10, suffix: "", intervals: [0, 4, 7], label: "♭VII" },
-    { offset: 8, suffix: "", intervals: [0, 4, 7], label: "♭VI" },
-    { offset: 3, suffix: "", intervals: [0, 4, 7], label: "♭III" },
+    { offset: 5, suffix: "m", suffix7th: "m7", label: "IVm", intervals: [0, 3, 7], intervals7th: [0, 3, 7, 10] },
+    { offset: 7, suffix: "m", suffix7th: "m7", label: "vm", intervals: [0, 3, 7], intervals7th: [0, 3, 7, 10] },
+    { offset: 10, suffix: "", label: "♭VII", intervals: [0, 4, 7] },
+    { offset: 8, suffix: "", label: "♭VI", intervals: [0, 4, 7] },
+    { offset: 3, suffix: "", label: "♭III", intervals: [0, 4, 7] },
   ];
 
-  for (const { offset, suffix, intervals, label } of subdmDefs) {
+  for (const def of subdmDefs) {
+    const { offset, suffix, label, intervals } = def;
+    const suffix7th = (def as any).suffix7th;
+    const intervals7th = (def as any).intervals7th;
     const rootInterval = offset % 12;
     const rootIndex = (keyIndex + rootInterval) % 12;
     const rootName = KEYS[rootIndex];
     chords.push({
       name: rootName + suffix,
+      name7th: suffix7th ? rootName + suffix7th : undefined,
       label,
       category: "subdm",
       categoryLabel: CATEGORY_LABELS.subdm,
       rootNote: 60 + keyIndex + rootInterval,
       intervals,
+      intervals7th: intervals7th || undefined,
       function: "SD",
     });
   }
@@ -308,13 +314,17 @@ export function getNonDiatonicChords(key: Key): NonDiatonicChord[] {
 /**
  * NonDiatonicChord → PaletteChord 変換
  */
-export function nonDiatonicToPalette(chord: NonDiatonicChord): PaletteChord {
+export function nonDiatonicToPalette(
+  chord: NonDiatonicChord,
+  type: "triad" | "7th" = "triad"
+): PaletteChord {
+  const is7th = type === "7th" && !!chord.name7th;
   return {
-    displayName: chord.name,
-    label: chord.label,
+    displayName: is7th ? chord.name7th! : chord.name,
+    label: is7th ? chord.label + "7" : chord.label,
     function: chord.function,
     rootNote: chord.rootNote,
-    intervals: chord.intervals,
+    intervals: is7th ? chord.intervals7th! : chord.intervals,
     isDiatonic: false,
   };
 }

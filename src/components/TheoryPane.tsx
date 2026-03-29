@@ -12,20 +12,19 @@ const FUNCTION_CLASSES: Record<string, string> = {
   D: "card-dominant",
 };
 
+// カード内は短縮記名にする
 const FUNCTION_LABELS: Record<string, string> = {
-  T: "Tonic",
-  SD: "Sub-Dom",
-  D: "Dominant",
+  T: "T",
+  SD: "SD",
+  D: "D",
 };
 
-// 度数に基づいた許可テンションのマッピング（アボイドノートの除外）
-// 0:I, 1:ii, 2:iii, 3:IV, 4:V, 5:vi, 6:vii°
 const ALLOWED_TENSIONS: Record<number, string[]> = {
   0: ["9", "13"],
   1: ["9", "11"],
   2: ["11"],
   3: ["9", "#11", "13"],
-  4: ["9", "13", "b9", "#9", "#11", "b13"], // V7 & V7(alt) 両方を表示
+  4: ["9", "13", "b9", "#9", "#11", "b13"],
   5: ["9", "11"],
   6: ["11", "b13"],
 };
@@ -38,9 +37,16 @@ export default function TheoryPane({
 }: TheoryPaneProps) {
   return (
     <section className="theory-pane">
-      <div className="section-header">
-        <h2 className="section-title">Diatonic Chords</h2>
-        <p className="section-desc">コードをクリックしてパレットに追加</p>
+      <div className="pane-info-row">
+        <div className="pane-info-main">
+          <span className="pane-info-label">Diatonic Chords</span>
+          <p className="section-desc">コードをクリックしてパレットに追加</p>
+        </div>
+        <div className="function-legend">
+          <span className="legend-item tonic">T: TONIC</span>
+          <span className="legend-item subdominant">SD: SUB-DOM</span>
+          <span className="legend-item dominant">D: DOMINANT</span>
+        </div>
       </div>
       <div className="chord-grid">
         {chords.map((chord) => {
@@ -83,7 +89,6 @@ export default function TheoryPane({
                 </button>
               </div>
               
-              {/* テンション・グループ */}
               {["9", "11", "13"].some(t => ALLOWED_TENSIONS[chord.degreeIndex].includes(t)) && (
                 <div className="chord-tension-group">
                   {["9", "11", "13"].map(t => (
@@ -101,7 +106,6 @@ export default function TheoryPane({
                 </div>
               )}
 
-              {/* オルタード・グループ */}
               {["b9", "#9", "#11", "b13"].some(t => ALLOWED_TENSIONS[chord.degreeIndex].includes(t)) && (
                 <div className="chord-alter-group">
                   {["b9", "#9", "#11", "b13"].map(t => (
