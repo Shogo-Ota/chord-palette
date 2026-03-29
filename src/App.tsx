@@ -219,7 +219,7 @@ function App() {
       </main>
       <footer className="footer">
         <p>Chord Palette — 直感的にコード進行を組み立てよう</p>
-        <p className="version-info">ver.1.0.1</p>
+        <p className="version-info">ver.2.0.0</p>
       </footer>
     </div>
   );
