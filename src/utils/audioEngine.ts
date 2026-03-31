@@ -221,12 +221,11 @@ function playHiHat(ctx: AudioContext, time: number) {
   noise.stop(time + 0.05);
 }
 
-// === シーケンサー (Look-ahead スケジューリング) ===
-
 let sequenceTimerId: number | null = null;
 let nextNoteTime = 0;
 let current16thNote = 0; 
 let currentChordIndex = 0;
+let nextChordTick = 0; // 次のコードをトリガーする16分音符のインデックス
 let isPlaying = false;
 let sequencePalette: PaletteChord[] = [];
 let sequenceBpm = 120;
@@ -237,7 +236,6 @@ let sequenceIsLooping = false; // ループ状態
 
 function scheduleNote(beatNumber: number, time: number) {
   const ctx = getAudioContext();
-  const beatPerChord = 8; // 1コードは16分音符8個分(＝2拍)とする
 
   // ドラムのスケジューリング
   if (sequencePattern === "4beat") {
@@ -270,14 +268,24 @@ function scheduleNote(beatNumber: number, time: number) {
   }
 
   // コードのスケジューリング
-  if (beatNumber % beatPerChord === 0) {
-    if (currentChordIndex < sequencePalette.length) {
-      if (sequenceOnTick) {
-        sequenceOnTick(currentChordIndex);
+  if (beatNumber % 1 === 0) { // 16分音符ごとのチェック
+    // nextChordTick: 次のコードを鳴らすべき16分音符のカウント
+    if (beatNumber === nextChordTick) {
+      if (currentChordIndex < sequencePalette.length) {
+        if (sequenceOnTick) {
+          sequenceOnTick(currentChordIndex);
+        }
+        const chord = sequencePalette[currentChordIndex];
+        const chordBeats = chord.beats || 2;
+        const sustainSec = (60 / sequenceBpm) * chordBeats;
+        
+        playChord(chord, sustainSec, time);
+        
+        // 次のコードが鳴るべきタイミング（16分音符単位）を計算
+        // 1拍 = 16分音符4個
+        nextChordTick += chordBeats * 4;
+        currentChordIndex++;
       }
-      const sustainSec = (60 / sequenceBpm) * 2;
-      playChord(sequencePalette[currentChordIndex], sustainSec, time);
-      currentChordIndex++;
     }
   }
 }
@@ -295,17 +303,19 @@ function scheduler() {
     scheduleNote(current16thNote, nextNoteTime);
     nextNote();
     
-    // 全コードと、最後のコードのサステイン時間（2拍分）を完了したら止める
-    const beatPerChord = 8;
-    const totalBeats = sequencePalette.length * beatPerChord;
-    if (current16thNote >= totalBeats) {
+    // 全コードがスケジュールされたかチェック
+    if (currentChordIndex >= sequencePalette.length && current16thNote >= nextChordTick) {
       if (sequenceIsLooping) {
         // ループ再生: カウンターをリセットして継続
         current16thNote = 0;
         currentChordIndex = 0;
+        nextChordTick = 0;
       } else {
-        // 通常再生: 最後のコードがスケジュールされたので、実際の音が終わる頃合いで停止関数を呼ぶ
-        const sustainSec = (60 / sequenceBpm) * 2;
+        // 通常再生: 最後にスケジュールされたコードの長さを取得して停止タイマーをセット
+        const lastChord = sequencePalette[sequencePalette.length - 1];
+        const lastBeats = lastChord ? (lastChord.beats || 2) : 2;
+        const sustainSec = (60 / sequenceBpm) * lastBeats;
+        
         window.setTimeout(() => {
           if (isPlaying && sequenceOnStop) {
             sequenceOnStop();
@@ -350,6 +360,7 @@ export function playPaletteSequence(
   
   current16thNote = 0;
   currentChordIndex = 0;
+  nextChordTick = 0;
   nextNoteTime = ctx.currentTime + 0.1; // 0.05 -> 0.1 (安全な開始バッファ)
   isPlaying = true;
 

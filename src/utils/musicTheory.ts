@@ -38,6 +38,7 @@ export interface PaletteChord {
   isDiatonic: boolean;
   bassNoteOverride?: number; // オンコード（分数コード）用
   key: Key;               // このコードが追加された時のキー
+  beats: number;          // 拍数 (1 or 2)
 }
 
 // === Diatonic Chord ===
@@ -76,7 +77,8 @@ export function getDiatonicChords(key: Key): DiatonicChord[] {
 export function diatonicToPalette(
   chord: DiatonicChord,
   type: "triad" | "7th" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13",
-  key: Key
+  key: Key,
+  beats: number = 2
 ): PaletteChord {
   const noteName = KEYS[chord.rootNote % 12];
   let displayName = chord.name;
@@ -162,6 +164,7 @@ export function diatonicToPalette(
     degreeIndex: chord.degreeIndex,
     isDiatonic: true,
     key,
+    beats,
   };
 }
 
@@ -320,7 +323,8 @@ export function getNonDiatonicChords(key: Key): NonDiatonicChord[] {
 export function nonDiatonicToPalette(
   chord: NonDiatonicChord,
   type: "triad" | "7th" = "triad",
-  key: Key
+  key: Key,
+  beats: number = 2
 ): PaletteChord {
   const is7th = type === "7th" && !!chord.name7th;
   return {
@@ -331,6 +335,7 @@ export function nonDiatonicToPalette(
     intervals: is7th ? chord.intervals7th! : chord.intervals,
     isDiatonic: false,
     key,
+    beats,
   };
 }
 

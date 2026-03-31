@@ -25,6 +25,7 @@ function App() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [currentPlayingIndex, setCurrentPlayingIndex] = useState<number | null>(null);
   const [history, setHistory] = useState<PaletteChord[][]>([]);
+  const [isHalfBeat, setIsHalfBeat] = useState<boolean>(false);
 
 
   const diatonicChords = useMemo(
@@ -44,8 +45,9 @@ function App() {
   );
 
   const handleDiatonicClick = (chord: DiatonicChord, type: "triad" | "7th" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13", key: Key) => {
-    const paletteChord = diatonicToPalette(chord, type, key);
-    const sustainSec = (60 / bpm) * 2;
+    const beats = isHalfBeat ? 1 : 2;
+    const paletteChord = diatonicToPalette(chord, type, key, beats);
+    const sustainSec = (60 / bpm) * beats;
     playChord(paletteChord, sustainSec);
     
     if (editingIndex !== null) {
@@ -61,18 +63,21 @@ function App() {
   };
 
   const handleNonDiatonicClick = (paletteChord: PaletteChord) => {
-    const sustainSec = (60 / bpm) * 2;
-    playChord(paletteChord, sustainSec);
+    // 既存の paletteChord に現在のハーフビート設定を適用
+    const beats = isHalfBeat ? 1 : 2;
+    const adjustedChord = { ...paletteChord, beats };
+    const sustainSec = (60 / bpm) * beats;
+    playChord(adjustedChord, sustainSec);
     
     if (editingIndex !== null) {
       setPalette((prev) => {
         const next = [...prev];
-        next[editingIndex] = paletteChord;
+        next[editingIndex] = adjustedChord;
         return next;
       });
       setEditingIndex(null);
     } else {
-      setPalette((prev) => [...prev, paletteChord]);
+      setPalette((prev) => [...prev, adjustedChord]);
     }
   };
 
@@ -109,7 +114,8 @@ function App() {
     };
     
     setPalette(newPalette);
-    const sustainSec = (60 / bpm) * 2;
+    const beats = target.beats || 2;
+    const sustainSec = (60 / bpm) * beats;
     playChord(newPalette[targetIdx], sustainSec);
     
     // 分数コード変更後も編集モードは維持した方が使いやすい（色々なベース音を試すため）
@@ -180,6 +186,8 @@ function App() {
           editingIndex={editingIndex}
           onEditingIndexChange={(idx) => setEditingIndex(prev => prev === idx ? null : idx)}
           currentPlayingIndex={currentPlayingIndex}
+          isHalfBeat={isHalfBeat}
+          onToggleHalfBeat={() => setIsHalfBeat(!isHalfBeat)}
         />
       </section>
 

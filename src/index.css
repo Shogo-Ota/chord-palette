@@ -163,11 +163,10 @@ body::before {
 
 .palette-actions-center {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0px; /* 2px -> 0px */
-  margin-left: auto;
-  padding-right: 8px;
+  flex-direction: row; /* 縦並びから横並びに変更 */
+  align-items: center;
+  gap: 8px;
+  margin: 0 auto; /* 中央寄せ */
 }
 
 
@@ -216,6 +215,35 @@ body::before {
 
 .bpm-number-input.mini {
   text-align: center;
+}
+
+/* 1/2 (Half Beat) Toggle Button */
+.btn-half-beat {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 800;
+  width: 32px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-half-beat:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+}
+
+.btn-half-beat.active {
+  background: var(--tonic-bg);
+  border-color: var(--tonic-border);
+  color: var(--tonic);
+  box-shadow: 0 0 8px var(--tonic-glow);
 }
 
 .palette-actions-right {
@@ -577,9 +605,20 @@ body::before {
   border: 1px solid var(--border-glass);
   border-radius: 8px;
   min-width: 60px;
+  flex-grow: 1; /* 通常は広がる */
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
+}
+
+.palette-pill.half-beat {
+  min-width: 38px;
+  flex-grow: 0.5; /* 半分の重み */
+  padding: 6px 4px;
+}
+
+.palette-pill.half-beat .pill-name {
+  font-size: 11px; /* 少し小さくして収める */
 }
 
 .palette-pill .pill-degree {

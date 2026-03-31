@@ -22,6 +22,8 @@ interface CompositionPaletteProps {
   editingIndex: number | null;
   onEditingIndexChange: (index: number) => void;
   currentPlayingIndex: number | null;
+  isHalfBeat: boolean;
+  onToggleHalfBeat: () => void;
 }
 
 const FUNCTION_CLASSES: Record<string, string> = {
@@ -51,6 +53,8 @@ export default function CompositionPalette({
   editingIndex,
   onEditingIndexChange,
   currentPlayingIndex,
+  isHalfBeat,
+  onToggleHalfBeat,
 }: CompositionPaletteProps) {
   // モバイル入力改善のためのローカルステート
   const [localBpm, setLocalBpm] = useState<string>(bpm.toString());
@@ -114,8 +118,15 @@ export default function CompositionPalette({
           </button>
         </div>
 
-        {/* 中央: 再生設定 (BPM / Drum) */}
+        {/* 中央: 再生設定 (BPM / Drum / 1/2) */}
         <div className="palette-actions-center">
+          <button 
+            className={`btn-half-beat ${isHalfBeat ? "active" : ""}`}
+            onClick={onToggleHalfBeat}
+            title="コード長さを1/2にする"
+          >
+            1/2
+          </button>
           <div className="playback-item mini">
             <label className="playback-label mini">BPM</label>
             <input
@@ -193,7 +204,7 @@ export default function CompositionPalette({
                       <div key={idx} className="palette-item-wrapper">
                         {cIdx > 0 && <span className="palette-arrow">→</span>}
                         <div 
-                          className={`palette-pill ${FUNCTION_CLASSES[chord.function] || ""} ${!chord.isDiatonic ? "pill-nondiatonic" : ""} ${editingIndex === idx ? "editing" : ""} ${currentPlayingIndex === idx ? "playing" : ""}`}
+                          className={`palette-pill ${chord.beats === 1 ? "half-beat" : ""} ${FUNCTION_CLASSES[chord.function] || ""} ${!chord.isDiatonic ? "pill-nondiatonic" : ""} ${editingIndex === idx ? "editing" : ""} ${currentPlayingIndex === idx ? "playing" : ""}`}
                           onClick={() => onEditingIndexChange(idx)}
                         >
                           <span className="pill-degree">{chord.label}</span>
