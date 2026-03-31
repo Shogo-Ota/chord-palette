@@ -150,22 +150,44 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 4px; /* 12px -> 4px に大幅縮小 */
+  gap: 12px;
   flex-shrink: 0;
+  transition: gap 0.3s ease;
+}
+
+@media (max-width: 480px) {
+  .palette-action-bar {
+    gap: 4px;
+  }
 }
 
 .palette-actions-left {
-  display: flex; /* grid から flex に変更 */
-  gap: 2px;
-  width: auto; /* 固定幅を解除して最小化 */
+  display: flex;
+  gap: 4px;
+  width: auto;
+}
+
+@media (max-width: 480px) {
+  .palette-actions-left {
+    gap: 2px;
+  }
+  .palette-actions-left .btn-text {
+    display: none; /* スマホではアイコンのみ */
+  }
 }
 
 .palette-actions-center {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 4px; /* 8px -> 4px */
+  gap: 8px;
   margin: 0 auto;
+}
+
+@media (max-width: 480px) {
+  .palette-actions-center {
+    gap: 4px;
+  }
 }
 
 
@@ -183,20 +205,49 @@ body::before {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   width: auto;
-  min-width: 0; /* min-width を解除 */
-  text-align: left;
-  margin-top: 1px;
 }
-
-
 
 .bpm-number-input.mini {
-  width: 42px; /* 72px -> 42px (極限までタイト化) */
-  padding: 2px;
+  width: 72px;
+  padding: 2px 4px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 11px;
+  height: 22px;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
 }
+
 .drum-select.mini {
-  width: 64px; /* 72px -> 64px (極限までタイト化) */
-  padding: 2px;
+  width: 90px;
+  padding: 2px 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 11px;
+  height: 22px;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+@media (max-width: 480px) {
+  .playback-label.mini {
+    min-width: 0;
+  }
+  .bpm-number-input.mini {
+    width: 42px;
+    padding: 2px;
+  }
+  .drum-select.mini {
+    width: 64px;
+    padding: 2px;
+  }
 }
 
 .bpm-number-input.mini:focus,
