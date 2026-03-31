@@ -150,23 +150,22 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 4px; /* 12px -> 4px に大幅縮小 */
   flex-shrink: 0;
 }
 
 .palette-actions-left {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
-  width: 192px; /* 3つのボタンを均等に配置するための固定幅 */
+  display: flex; /* grid から flex に変更 */
+  gap: 2px;
+  width: auto; /* 固定幅を解除して最小化 */
 }
 
 .palette-actions-center {
   display: flex;
-  flex-direction: row; /* 縦並びから横並びに変更 */
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
-  margin: 0 auto; /* 中央寄せ */
+  gap: 4px; /* 8px -> 4px */
+  margin: 0 auto;
 }
 
 
@@ -183,28 +182,21 @@ body::before {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  width: auto; /* 固定幅を解除 */
-  min-width: 28px; /* 「DRUM」が収まる最小幅を確保して左揃えを維持 */
+  width: auto;
+  min-width: 0; /* min-width を解除 */
   text-align: left;
   margin-top: 1px;
 }
 
 
 
-.bpm-number-input.mini,
+.bpm-number-input.mini {
+  width: 42px; /* 72px -> 42px (極限までタイト化) */
+  padding: 2px;
+}
 .drum-select.mini {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-size: 11px;
-  padding: 2px 4px;
-  height: 22px;
-  outline: none;
-  font-family: inherit;
-  transition: all 0.2s ease;
-  width: 72px;
-  text-align: left;
+  width: 64px; /* 72px -> 64px (極限までタイト化) */
+  padding: 2px;
 }
 
 .bpm-number-input.mini:focus,
