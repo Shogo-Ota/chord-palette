@@ -118,6 +118,7 @@ body::before {
   flex-direction: column;
   gap: 4px; /* 8px -> 4px */
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .palette-header-title {
@@ -172,7 +173,14 @@ body::before {
     gap: 2px;
   }
   .palette-actions-left .btn-text {
-    display: none; /* スマホではアイコンのみ */
+    display: block; /* スマホでも表示 */
+    font-size: 8px;   /* 最小サイズに縮小 */
+    margin-top: -2px;
+  }
+  .palette-actions-left .btn-header-action {
+    flex-direction: column; /* アイコンと文字を縦並びに */
+    padding: 2px 4px;
+    gap: 0;
   }
 }
 

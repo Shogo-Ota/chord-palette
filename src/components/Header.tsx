@@ -12,7 +12,7 @@ export default function Header({ selectedKey, onKeyChange }: HeaderProps) {
         <div className="header-brand">
           <div className="header-icon">♪</div>
           <div>
-            <h1 className="header-title">Chord Palette <span className="version-tag">ver.2.1.3</span></h1>
+            <h1 className="header-title">Chord Palette <span className="version-tag">ver.2.1.4</span></h1>
             <p className="header-subtitle">直感的コード進行ビルダー</p>
           </div>
         </div>
