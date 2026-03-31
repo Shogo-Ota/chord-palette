@@ -46,7 +46,7 @@ function App() {
     [lastChord]
   );
 
-  const handleDiatonicClick = (chord: DiatonicChord, type: "triad" | "7th" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13", key: Key) => {
+  const handleDiatonicClick = (chord: DiatonicChord, type: "triad" | "7th" | "6" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13", key: Key) => {
     const beats = chordDurationMode === "1" ? 2 : chordDurationMode === "1/2" ? 1 : 0.5;
     const paletteChord = diatonicToPalette(chord, type, key, beats);
     const sustainSec = (60 / bpm) * beats;

@@ -13,7 +13,7 @@ interface ChordSelectorSheetProps {
 
   recommendedIndices: number[];
   lastChord: PaletteChord | null;
-  onDiatonicClick: (chord: DiatonicChord, type: "triad" | "7th" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13", key: Key) => void;
+  onDiatonicClick: (chord: DiatonicChord, type: "triad" | "7th" | "6" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13", key: Key) => void;
   onNonDiatonicClick: (chord: PaletteChord) => void;
   onBassSelect: (bassNote: number, noteName: string) => void;
   selectedKey: Key;
