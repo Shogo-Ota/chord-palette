@@ -77,59 +77,52 @@ export function playChord(chord: PaletteChord, durationSec: number = 0.8, time?:
   notes.push(bass - 12);
 
   const duration = durationSec;
-  const attack = 0.05; // わずかなAttackで柔らかさを出す
-  const release = duration * 0.6; // 余韻を長めに設定
+  const attack = 0.002; // 超高速アタック (チップチューン)
+  const decay = 0.04;
+  const sustain = 0.6;
+  const release = 0.05; // 歯切れの良いリリース
 
   // 各ノートに対して音色を合成
   notes.forEach((note, i) => {
     const freq = midiToFreq(note);
     const isBass = i === notes.length - 1;
 
-    // 1. ボディトーン (温かみのある中心)
+    // 1. メイン（パルス波/矩形波 - 8-bitサウンドの核）
     const osc1 = ctx.createOscillator();
-    osc1.type = "triangle";
+    osc1.type = "square";
     osc1.frequency.setValueAtTime(freq, now);
 
-    // 2. デチューンレイヤー (厚みと艶を出す)
+    // 2. サブレイヤー（少し高域のピコピコ感）
     const osc2 = ctx.createOscillator();
-    osc2.type = "sine";
-    osc2.frequency.setValueAtTime(freq * 1.002, now); // わずかにデチューン
+    osc2.type = "square";
+    osc2.frequency.setValueAtTime(freq * 2.0, now); 
 
-    // 3. サブレイヤー (煌びやかさを出す、ベース以外)
-    const osc3 = !isBass ? ctx.createOscillator() : null;
-    if (osc3) {
-      osc3.type = "sine";
-      osc3.frequency.setValueAtTime(freq * 2.0, now); // 1オクターブ上
-    }
-
-    // 各オシレーターを個別のGainでコントロール
     const gainNode = ctx.createGain();
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.setValueAtTime(isBass ? 400 : 2500, now); // 高域を抑えて温かみを出す
-    filter.Q.setValueAtTime(1, now);
+    // 8-bitらしさを出すために少しフィルターで高域を削って「こもらせる」
+    filter.frequency.setValueAtTime(isBass ? 400 : 2000, now); 
+    filter.Q.setValueAtTime(2, now); // わずかにレゾナンスを効かせる
 
-    // ADSR エンベロープ (Attack, Releaseのみの簡易版)
-    const maxGain = isBass ? 0.15 : 0.08;
+    // ADSR エンベロープ
+    const maxGain = isBass ? 0.12 : 0.06;
     gainNode.gain.setValueAtTime(0, now);
     gainNode.gain.linearRampToValueAtTime(maxGain, now + attack);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration + release);
+    gainNode.gain.exponentialRampToValueAtTime(maxGain * sustain, now + attack + decay);
+    
+    gainNode.gain.setValueAtTime(maxGain * sustain, now + duration - release);
+    gainNode.gain.linearRampToValueAtTime(0.001, now + duration);
 
     osc1.connect(gainNode);
     osc2.connect(gainNode);
-    if (osc3) osc3.connect(gainNode);
 
     gainNode.connect(filter);
     connectToMaster(filter);
 
     osc1.start(now);
-    osc1.stop(now + duration + release + 0.1);
+    osc1.stop(now + duration + 0.1);
     osc2.start(now);
-    osc2.stop(now + duration + release + 0.1);
-    if (osc3) {
-      osc3.start(now);
-      osc3.stop(now + duration + release + 0.1);
-    }
+    osc2.stop(now + duration + 0.1);
   });
 }
 
