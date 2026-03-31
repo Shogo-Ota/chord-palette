@@ -8,7 +8,9 @@ let compressor: DynamicsCompressorNode | null = null;
 
 function getAudioContext(): AudioContext {
   if (!audioContext) {
-    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
+    // サンプリングレートを 48kHz に固定 (OSによる変動を防ぐ)
+    audioContext = new AudioCtx({ sampleRate: 48000 });
     
     // マスターコンプレッサー: 音割れを防ぎ、全体の音量を均一化する
     compressor = audioContext.createDynamicsCompressor();
