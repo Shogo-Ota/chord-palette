@@ -14,6 +14,8 @@ import {
 } from "./utils/musicTheory";
 import { playChord, playPaletteSequence, stopPaletteSequence } from "./utils/audioEngine";
 
+const ChordDurationOptions = ["1", "1/2", "1/4"] as const;
+
 function App() {
   const [selectedKey, setSelectedKey] = useState<Key>("C");
   const [palette, setPalette] = useState<PaletteChord[]>([]);
@@ -25,7 +27,7 @@ function App() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [currentPlayingIndex, setCurrentPlayingIndex] = useState<number | null>(null);
   const [history, setHistory] = useState<PaletteChord[][]>([]);
-  const [isHalfBeat, setIsHalfBeat] = useState<boolean>(false);
+  const [chordDurationMode, setChordDurationMode] = useState<"1" | "1/2" | "1/4">("1");
 
 
   const diatonicChords = useMemo(
@@ -45,7 +47,7 @@ function App() {
   );
 
   const handleDiatonicClick = (chord: DiatonicChord, type: "triad" | "7th" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13", key: Key) => {
-    const beats = isHalfBeat ? 1 : 2;
+    const beats = chordDurationMode === "1" ? 2 : chordDurationMode === "1/2" ? 1 : 0.5;
     const paletteChord = diatonicToPalette(chord, type, key, beats);
     const sustainSec = (60 / bpm) * beats;
     playChord(paletteChord, sustainSec);
@@ -63,8 +65,8 @@ function App() {
   };
 
   const handleNonDiatonicClick = (paletteChord: PaletteChord) => {
-    // 既存の paletteChord に現在のハーフビート設定を適用
-    const beats = isHalfBeat ? 1 : 2;
+    // 既存の paletteChord に現在のリズムモード設定を適用
+    const beats = chordDurationMode === "1" ? 2 : chordDurationMode === "1/2" ? 1 : 0.5;
     const adjustedChord = { ...paletteChord, beats };
     const sustainSec = (60 / bpm) * beats;
     playChord(adjustedChord, sustainSec);
@@ -186,8 +188,12 @@ function App() {
           editingIndex={editingIndex}
           onEditingIndexChange={(idx) => setEditingIndex(prev => prev === idx ? null : idx)}
           currentPlayingIndex={currentPlayingIndex}
-          isHalfBeat={isHalfBeat}
-          onToggleHalfBeat={() => setIsHalfBeat(!isHalfBeat)}
+          chordDurationMode={chordDurationMode}
+          onToggleDurationMode={() => {
+            const currentIdx = ChordDurationOptions.indexOf(chordDurationMode);
+            const nextIdx = (currentIdx + 1) % ChordDurationOptions.length;
+            setChordDurationMode(ChordDurationOptions[nextIdx]);
+          }}
         />
       </section>
 

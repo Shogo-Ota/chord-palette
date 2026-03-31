@@ -20,10 +20,10 @@ interface CompositionPaletteProps {
   onLoadFromHistory: (index: number) => void;
   onRemoveFromHistory: (index: number) => void;
   editingIndex: number | null;
-  onEditingIndexChange: (index: number) => void;
+  onEditingIndexChange: (index: number | null) => void;
   currentPlayingIndex: number | null;
-  isHalfBeat: boolean;
-  onToggleHalfBeat: () => void;
+  chordDurationMode: "1" | "1/2" | "1/4";
+  onToggleDurationMode: () => void;
 }
 
 const FUNCTION_CLASSES: Record<string, string> = {
@@ -53,8 +53,8 @@ export default function CompositionPalette({
   editingIndex,
   onEditingIndexChange,
   currentPlayingIndex,
-  isHalfBeat,
-  onToggleHalfBeat,
+  chordDurationMode,
+  onToggleDurationMode,
 }: CompositionPaletteProps) {
   // モバイル入力改善のためのローカルステート
   const [localBpm, setLocalBpm] = useState<string>(bpm.toString());
@@ -121,11 +121,11 @@ export default function CompositionPalette({
         {/* 中央: 再生設定 (BPM / Drum / 1/2) */}
         <div className="palette-actions-center">
           <button 
-            className={`btn-half-beat ${isHalfBeat ? "active" : ""}`}
-            onClick={onToggleHalfBeat}
-            title="コード長さを1/2にする"
+            className={`btn-half-beat ${chordDurationMode !== "1" ? "active" : ""}`}
+            onClick={onToggleDurationMode}
+            title="コードの長さを切り替え (1 -> 1/2 -> 1/4)"
           >
-            1/2
+            {chordDurationMode}
           </button>
           <div className="playback-item mini">
             <label className="playback-label mini">BPM</label>
@@ -200,28 +200,35 @@ export default function CompositionPalette({
                 <div key={sIdx} className="palette-key-segment">
                   <div className="segment-key-label">Key: {segment.key}</div>
                   <div className="segment-chords">
-                    {segment.chords.map(({ chord, originalIndex: idx }, cIdx) => (
-                      <div key={idx} className="palette-item-wrapper">
-                        {cIdx > 0 && <span className="palette-arrow">→</span>}
-                        <div 
-                          className={`palette-pill ${chord.beats === 1 ? "half-beat" : ""} ${FUNCTION_CLASSES[chord.function] || ""} ${!chord.isDiatonic ? "pill-nondiatonic" : ""} ${editingIndex === idx ? "editing" : ""} ${currentPlayingIndex === idx ? "playing" : ""}`}
-                          onClick={() => onEditingIndexChange(idx)}
-                        >
-                          <span className="pill-degree">{chord.label}</span>
-                          <span className="pill-name">{chord.displayName}</span>
-                          <span 
-                            className="pill-remove" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onRemove(idx);
-                            }}
-                            title="削除"
+                    {segment.chords.map(({ chord, originalIndex: idx }, cIdx) => {
+                      const isHalf = chord.beats === 1;
+                      const isQuarter = chord.beats === 0.5;
+                      const isEditing = editingIndex === idx;
+                      const isActive = currentPlayingIndex === idx;
+
+                      return (
+                        <div key={idx} className="palette-item-wrapper">
+                          {cIdx > 0 && <span className="palette-arrow">→</span>}
+                          <div 
+                            className={`palette-pill ${isHalf ? "half-beat" : ""} ${isQuarter ? "quarter-beat" : ""} ${FUNCTION_CLASSES[chord.function] || ""} ${!chord.isDiatonic ? "pill-nondiatonic" : ""} ${isEditing ? "editing" : ""} ${isActive ? "playing" : ""}`}
+                            onClick={() => onEditingIndexChange(idx)}
                           >
-                            ✕
-                          </span>
+                            <span className="pill-degree">{chord.label}</span>
+                            <span className="pill-name">{chord.displayName}</span>
+                            <span 
+                              className="pill-remove" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRemove(idx);
+                              }}
+                              title="削除"
+                            >
+                              ✕
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   {sIdx < segments.length - 1 && <span className="palette-arrow segment-arrow">→</span>}
                 </div>
