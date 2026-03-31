@@ -1,19 +1,22 @@
-import { useState, useRef, useEffect } from "react";
-import type { PaletteChord, Key } from "../utils/musicTheory";
+import { useState, useEffect } from "react";
+import type { PaletteChord } from "../utils/musicTheory";
 
 interface CompositionPaletteProps {
   palette: PaletteChord[];
   bpm: number;
   onBpmChange: (bpm: number) => void;
   drumPattern: "none" | "4beat" | "8beat" | "16beat";
-  onDrumChange: (pattern: "none" | "4beat" | "8beat" | "16beat") => void;
+  onDrumPatternChange: (pattern: "none" | "4beat" | "8beat" | "16beat") => void;
+  isPlaying: boolean;
+  onUndo: () => void;
   onRemove: (index: number) => void;
   onClear: () => void;
-  onPlay: () => void;
+  onPlayAll: () => void;
   onStop: () => void;
-  isPlaying: boolean;
-  onSave: () => void;
+  isLooping: boolean;
+  onToggleLoop: () => void;
   history: PaletteChord[][];
+  onSaveToHistory: () => void;
   onLoadFromHistory: (index: number) => void;
   onRemoveFromHistory: (index: number) => void;
   editingIndex: number | null;
@@ -24,9 +27,9 @@ interface CompositionPaletteProps {
 }
 
 const FUNCTION_CLASSES: Record<string, string> = {
-  T: "card-tonic",
-  SD: "card-subdominant",
-  D: "card-dominant",
+  T: "pill-tonic",
+  SD: "pill-subdominant",
+  D: "pill-dominant",
 };
 
 export default function CompositionPalette({
@@ -34,14 +37,17 @@ export default function CompositionPalette({
   bpm,
   onBpmChange,
   drumPattern,
-  onDrumChange,
+  onDrumPatternChange,
+  isPlaying,
+  onUndo,
   onRemove,
   onClear,
-  onPlay,
+  onPlayAll,
   onStop,
-  isPlaying,
-  onSave,
+  isLooping,
+  onToggleLoop,
   history,
+  onSaveToHistory,
   onLoadFromHistory,
   onRemoveFromHistory,
   editingIndex,
@@ -52,51 +58,62 @@ export default function CompositionPalette({
 }: CompositionPaletteProps) {
   // モバイル入力改善のためのローカルステート
   const [localBpm, setLocalBpm] = useState<string>(bpm.toString());
-  const scrollRef = useRef<HTMLDivElement>(null);
 
+  // 外部からのBPM変更（履歴ロード等）に同期
   useEffect(() => {
     setLocalBpm(bpm.toString());
   }, [bpm]);
 
-  // パレットが更新されたら末尾にスクロール
-  useEffect(() => {
-    if (scrollRef.current && !isPlaying) {
-      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
-    }
-  }, [palette.length, isPlaying]);
-
   const handleBpmChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalBpm(e.target.value);
-    const val = parseInt(e.target.value);
-    if (!isNaN(val) && val >= 20 && val <= 300) {
-      onBpmChange(val);
+    const val = e.target.value;
+    // 数字のみ許可（空文字も許可してタイピングしやすくする）
+    if (val === "" || /^\d+$/.test(val)) {
+      setLocalBpm(val);
     }
   };
 
-  // キーが変わったタイミングでセグメント化する（転調の視覚化）
-  const segments = palette.reduce((acc, chord, index) => {
-    if (acc.length === 0 || acc[acc.length - 1].key !== chord.key) {
-      acc.push({ key: chord.key, chords: [] });
+  const handleBpmBlur = () => {
+    let num = parseInt(localBpm, 10);
+    if (isNaN(num)) num = 100;
+    
+    // ユーザー指定の範囲 10-200 でクランプ
+    const clamped = Math.min(200, Math.max(10, num));
+    setLocalBpm(clamped.toString());
+    onBpmChange(clamped);
+  };
+
+  // 再生中のオートスクロール
+  useEffect(() => {
+    if (currentPlayingIndex !== null) {
+      const activePill = document.querySelector(".palette-pill.playing");
+      if (activePill) {
+        activePill.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "center",
+        });
+      }
     }
-    acc[acc.length - 1].chords.push({ chord, originalIndex: index });
-    return acc;
-  }, [] as { key: Key; chords: { chord: PaletteChord; originalIndex: number }[] }[]);
+  }, [currentPlayingIndex]);
 
   return (
-    <div className="composition-palette">
+    <div className="workspace-palette">
+      <div className="palette-header-title">
+        <h2 className="section-title mini">PALETTE</h2>
+      </div>
+      {/* アクションバー */}
       <div className="palette-action-bar">
-        {/* 左側: 保存・管理系 */}
         <div className="palette-actions-left">
-          <button className="btn-header-action" onClick={() => window.history.back()} title="戻る">
-            <span className="btn-icon">⬅️</span>
+          <button className="btn-header-action" onClick={onUndo} title="戻る">
+            <span className="btn-icon">↩</span>
             <span className="btn-text">戻る</span>
           </button>
-          <button className="btn-header-action" onClick={onSave} title="今の進行を保存">
+          <button className="btn-header-action" onClick={onSaveToHistory} disabled={palette.length === 0} title="保存">
             <span className="btn-icon">💾</span>
             <span className="btn-text">保存</span>
           </button>
-          <button className="btn-header-action btn-danger" onClick={onClear} title="全削除">
-            <span className="btn-icon">🗑️</span>
+          <button className="btn-header-action btn-clear-text" onClick={onClear} disabled={palette.length === 0} title="クリア">
+            <span className="btn-icon">✕</span>
             <span className="btn-text">クリア</span>
           </button>
         </div>
@@ -113,22 +130,22 @@ export default function CompositionPalette({
           <div className="playback-item mini">
             <label className="playback-label mini">BPM</label>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
               value={localBpm}
               onChange={handleBpmChange}
+              onBlur={handleBpmBlur}
               className="bpm-number-input mini"
-              min="20"
-              max="300"
             />
           </div>
-          <div className="playback-item mini">
-            <label className="playback-label mini">DRUM</label>
-            <select
-              value={drumPattern}
-              onChange={(e) => onDrumChange(e.target.value as any)}
+          <div className="playback-item mini group-drum">
+            <label className="playback-label mini">Drum</label>
+            <select 
               className="drum-select mini"
+              value={drumPattern}
+              onChange={(e) => onDrumPatternChange(e.target.value as any)}
             >
-              <option value="none">OFF</option>
+              <option value="none">None</option>
               <option value="4beat">4 Beat</option>
               <option value="8beat">8 Beat</option>
               <option value="16beat">16 Beat</option>
@@ -136,74 +153,101 @@ export default function CompositionPalette({
           </div>
         </div>
 
-        {/* 右側: 再生コントロール */}
         <div className="palette-actions-right">
-          {isPlaying ? (
-            <button className="btn-playback-toggle stop pulse" onClick={onStop} title="停止">
-              停止 ⏹
+          <button 
+            className={`btn-toggle btn-loop ${isLooping ? "active" : ""}`} 
+            onClick={onToggleLoop}
+            title="ループ再生"
+          >
+            <span className="toggle-icon">🔁</span>
+          </button>
+          {!isPlaying ? (
+            <button 
+              className="btn-action btn-play mini" 
+              onClick={onPlayAll} 
+              disabled={palette.length === 0}
+            >
+              <span className="btn-icon">▶</span>
             </button>
           ) : (
-            <button 
-              className="btn-playback-toggle play" 
-              onClick={onPlay} 
-              disabled={palette.length === 0}
-              title="最初から再生"
-            >
-              再生 ▶
+            <button className="btn-action btn-stop mini" onClick={onStop}>
+              <span className="btn-icon">■</span>
             </button>
           )}
         </div>
       </div>
 
-      <div className="palette-scroll-container" ref={scrollRef}>
+      {/* コード進行表示エリア */}
+      <div className="palette-canvas">
         {palette.length === 0 ? (
-          <div className="palette-empty-state">
-            <span className="empty-icon">🎼</span>
-            <p>コードを選択して進行を作成しましょう</p>
+          <div className="palette-empty-canvas">
+            <p className="hint">コードを選択して追加</p>
           </div>
         ) : (
-          <div className="palette-display">
-            {segments.map((segment, sIdx) => (
-              <div key={sIdx} className="palette-key-segment">
-                <div className="segment-key-label">{segment.key}</div>
-                <div className="segment-chords">
-                  {segment.chords.map(({ chord, originalIndex: idx }, cIdx) => {
-                    const isHalf = chord.beats === 1;
-                    const isQuarter = chord.beats === 0.5;
-                    const isEditing = editingIndex === idx;
-                    const isActive = currentPlayingIndex === idx;
+          <div className="palette-chords center">
+            {/* キーごとにグループ化して表示 */}
+            {(() => {
+              const segments: { key: string; chords: { chord: PaletteChord; originalIndex: number }[] }[] = [];
+              palette.forEach((chord, idx) => {
+                const currentKey = chord.key || "C"; // フォールバック
+                if (segments.length === 0 || segments[segments.length - 1].key !== currentKey) {
+                  segments.push({ key: currentKey, chords: [] });
+                }
+                segments[segments.length - 1].chords.push({ chord, originalIndex: idx });
+              });
 
-                    return (
-                      <div key={idx} className="palette-item-wrapper">
-                        {cIdx > 0 && <span className="palette-arrow">→</span>}
-                        <div 
-                          className={`palette-pill ${isHalf ? "half-beat" : ""} ${isQuarter ? "quarter-beat" : ""} ${FUNCTION_CLASSES[chord.function] || ""} ${!chord.isDiatonic ? "pill-nondiatonic" : ""} ${isEditing ? "editing" : ""} ${isActive ? "playing" : ""}`}
-                          onClick={() => onEditingIndexChange(idx)}
-                        >
-                          <span className="pill-degree">{chord.label}</span>
-                          <span className="pill-name">{chord.displayName}</span>
-                          <span 
-                            className="pill-remove" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onRemove(idx);
-                            }}
-                            title="削除"
+              return segments.map((segment, sIdx) => (
+                <div key={sIdx} className="palette-key-segment">
+                  <div className="segment-key-label">Key: {segment.key}</div>
+                  <div className="segment-chords">
+                    {segment.chords.map(({ chord, originalIndex: idx }, cIdx) => {
+                      const isHalf = chord.beats === 1;
+                      const isQuarter = chord.beats === 0.5;
+                      const isEditing = editingIndex === idx;
+                      const isActive = currentPlayingIndex === idx;
+
+                      return (
+                        <div key={idx} className="palette-item-wrapper">
+                          {cIdx > 0 && <span className="palette-arrow">→</span>}
+                          <div 
+                            className={`palette-pill ${isHalf ? "half-beat" : ""} ${isQuarter ? "quarter-beat" : ""} ${FUNCTION_CLASSES[chord.function] || ""} ${!chord.isDiatonic ? "pill-nondiatonic" : ""} ${isEditing ? "editing" : ""} ${isActive ? "playing" : ""}`}
+                            onClick={() => onEditingIndexChange(idx)}
                           >
-                            ✕
-                          </span>
+                            <span className="pill-degree">{chord.label}</span>
+                            <span className="pill-name">{chord.displayName}</span>
+                            <span 
+                              className="pill-remove" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRemove(idx);
+                              }}
+                              title="削除"
+                            >
+                              ✕
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                  {sIdx < segments.length - 1 && <span className="palette-arrow segment-arrow">→</span>}
                 </div>
-                {sIdx < segments.length - 1 && <span className="palette-arrow segment-arrow">→</span>}
+              ));
+            })()}
+            {palette.length > 0 && palette.length < 8 && (
+              <div className="palette-item-wrapper">
+                <span className="palette-arrow">→</span>
+                <div className="palette-empty-spot mini">
+                  <p className="hint">+</p>
+                </div>
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
 
+
+      {/* 履歴セクション */}
       {history.length > 0 && (
         <div className="palette-history">
           <div className="history-header">
@@ -211,18 +255,23 @@ export default function CompositionPalette({
             <h3 className="history-title">History</h3>
           </div>
           <div className="history-list">
-            {history.map((prog, idx) => (
-              <div key={idx} className="history-item">
-                <div className="history-item-info" onClick={() => onLoadFromHistory(idx)}>
-                  <span className="history-item-count">{prog.length} chords</span>
-                  <div className="history-item-preview">
-                    {prog.slice(0, 4).map(c => c.displayName).join(" → ")}
-                    {prog.length > 4 && " ..."}
-                  </div>
-                </div>
+            {history.map((item, idx) => (
+              <div key={idx} className="history-item-container">
+                <button
+                  className="history-item"
+                  onClick={() => onLoadFromHistory(idx)}
+                >
+                  <span className="history-number">#{history.length - idx}</span>
+                  <span className="history-summary">
+                    {item.map((c) => c.displayName).join(" → ")}
+                  </span>
+                </button>
                 <button 
                   className="btn-history-remove" 
-                  onClick={() => onRemoveFromHistory(idx)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveFromHistory(idx);
+                  }}
                   title="履歴から削除"
                 >
                   ✕
