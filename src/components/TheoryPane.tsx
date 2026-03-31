@@ -1,9 +1,10 @@
-import type { DiatonicChord } from "../utils/musicTheory";
+import type { DiatonicChord, Key } from "../utils/musicTheory";
 
 interface TheoryPaneProps {
   chords: DiatonicChord[];
   recommendedIndices: number[];
-  onChordClick: (chord: DiatonicChord, type: "triad" | "7th" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13") => void;
+  onChordClick: (chord: DiatonicChord, type: "triad" | "7th" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13", key: Key) => void;
+  selectedKey: Key;
 }
 
 const FUNCTION_CLASSES: Record<string, string> = {
@@ -34,6 +35,7 @@ export default function TheoryPane({
   chords,
   recommendedIndices,
   onChordClick,
+  selectedKey,
 }: TheoryPaneProps) {
   return (
     <section className="theory-pane">
@@ -60,14 +62,14 @@ export default function TheoryPane({
               <span className="chord-degree">{chord.degree}</span>
               <button
                 className="chord-name-btn"
-                onClick={() => onChordClick(chord, "triad")}
+                onClick={() => onChordClick(chord, "triad", selectedKey)}
                 title={`${chord.name} をパレットに追加`}
               >
                 {chord.name}
               </button>
               <button
                 className="chord-7th-btn"
-                onClick={() => onChordClick(chord, "7th")}
+                onClick={() => onChordClick(chord, "7th", selectedKey)}
                 title={`${chord.name7th} をパレットに追加`}
               >
                 {chord.name7th}
@@ -75,14 +77,14 @@ export default function TheoryPane({
               <div className="chord-sus-group">
                 <button
                   className="chord-sus-btn"
-                  onClick={() => onChordClick(chord, "sus2")}
+                  onClick={() => onChordClick(chord, "sus2", selectedKey)}
                   title={`${chord.name.replace(/m($|\(♭5\))/, "")}sus2 をパレットに追加`}
                 >
                   sus2
                 </button>
                 <button
                   className="chord-sus-btn"
-                  onClick={() => onChordClick(chord, "sus4")}
+                  onClick={() => onChordClick(chord, "sus4", selectedKey)}
                   title={`${chord.name.replace(/m($|\(♭5\))/, "")}sus4 をパレットに追加`}
                 >
                   sus4
@@ -96,7 +98,7 @@ export default function TheoryPane({
                       <button
                         key={t}
                         className="chord-tension-btn"
-                        onClick={() => onChordClick(chord, t as any)}
+                        onClick={() => onChordClick(chord, t as any, selectedKey)}
                         title={`${chord.name7th}(${t}) をパレットに追加`}
                       >
                         {t}
@@ -113,7 +115,7 @@ export default function TheoryPane({
                       <button
                         key={t}
                         className="chord-alter-btn"
-                        onClick={() => onChordClick(chord, t as any)}
+                        onClick={() => onChordClick(chord, t as any, selectedKey)}
                         title={`${chord.name7th}(${t.replace("b", "♭").replace("#", "♯")}) をパレットに追加`}
                       >
                         {t.replace("b", "♭").replace("#", "♯")}

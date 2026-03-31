@@ -75,34 +75,59 @@ export function playChord(chord: PaletteChord, durationSec: number = 0.8, time?:
   notes.push(bass - 12);
 
   const duration = durationSec;
-  const fadeOut = duration * 0.4;
+  const attack = 0.05; // わずかなAttackで柔らかさを出す
+  const release = duration * 0.6; // 余韻を長めに設定
 
-  notes.forEach((note) => {
-    const osc = ctx.createOscillator();
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(midiToFreq(note), now);
+  // 各ノートに対して音色を合成
+  notes.forEach((note, i) => {
+    const freq = midiToFreq(note);
+    const isBass = i === notes.length - 1;
 
+    // 1. ボディトーン (温かみのある中心)
+    const osc1 = ctx.createOscillator();
+    osc1.type = "triangle";
+    osc1.frequency.setValueAtTime(freq, now);
+
+    // 2. デチューンレイヤー (厚みと艶を出す)
     const osc2 = ctx.createOscillator();
     osc2.type = "sine";
-    osc2.frequency.setValueAtTime(midiToFreq(note) * 2, now);
+    osc2.frequency.setValueAtTime(freq * 1.002, now); // わずかにデチューン
 
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.12, now); // 少し下げ
-    gain.gain.exponentialRampToValueAtTime(0.001, now + duration + fadeOut);
+    // 3. サブレイヤー (煌びやかさを出す、ベース以外)
+    const osc3 = !isBass ? ctx.createOscillator() : null;
+    if (osc3) {
+      osc3.type = "sine";
+      osc3.frequency.setValueAtTime(freq * 2.0, now); // 1オクターブ上
+    }
 
-    const gain2 = ctx.createGain();
-    gain2.gain.setValueAtTime(0.03, now); // 少し下げ
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + duration + fadeOut);
+    // 各オシレーターを個別のGainでコントロール
+    const gainNode = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(isBass ? 400 : 2500, now); // 高域を抑えて温かみを出す
+    filter.Q.setValueAtTime(1, now);
 
-    osc.connect(gain);
-    connectToMaster(gain);
-    osc2.connect(gain2);
-    connectToMaster(gain2);
+    // ADSR エンベロープ (Attack, Releaseのみの簡易版)
+    const maxGain = isBass ? 0.15 : 0.08;
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(maxGain, now + attack);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration + release);
 
-    osc.start(now);
-    osc.stop(now + duration + fadeOut + 0.1);
+    osc1.connect(gainNode);
+    osc2.connect(gainNode);
+    if (osc3) osc3.connect(gainNode);
+
+    gainNode.connect(filter);
+    connectToMaster(filter);
+
+    osc1.start(now);
+    osc1.stop(now + duration + release + 0.1);
     osc2.start(now);
-    osc2.stop(now + duration + fadeOut + 0.1);
+    osc2.stop(now + duration + release + 0.1);
+    if (osc3) {
+      osc3.start(now);
+      osc3.stop(now + duration + release + 0.1);
+    }
   });
 }
 
@@ -115,10 +140,12 @@ function playKick(ctx: AudioContext, time: number) {
   osc.connect(gain);
   connectToMaster(gain);
   
+  // アタックの瞬間に周波数を高くし、急激に落とす (thump音)
   osc.frequency.setValueAtTime(150, time);
+  osc.frequency.exponentialRampToValueAtTime(40, time + 0.1);
   osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
   
-  gain.gain.setValueAtTime(0.5, time); // 0.8 -> 0.5 (クリッピング防止)
+  gain.gain.setValueAtTime(0.6, time);
   gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
   
   osc.start(time);
@@ -126,44 +153,70 @@ function playKick(ctx: AudioContext, time: number) {
 }
 
 function playSnare(ctx: AudioContext, time: number) {
-  const osc1 = ctx.createOscillator();
-  const osc2 = ctx.createOscillator();
-  const gain = ctx.createGain();
+  // スネア本体のトーン (Body)
+  const osc = ctx.createOscillator();
+  const oscGain = ctx.createGain();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(180, time);
+  osc.connect(oscGain);
+  connectToMaster(oscGain);
+  oscGain.gain.setValueAtTime(0.3, time);
+  oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+  osc.start(time);
+  osc.stop(time + 0.1);
+
+  // ホワイトノイズによるザラつき (Sizzle)
+  const bufferSize = ctx.sampleRate * 0.2;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
   
-  osc1.type = "triangle";
-  osc2.type = "square";
+  const noise = ctx.createBufferSource();
+  noise.buffer = buffer;
+  const noiseFilter = ctx.createBiquadFilter();
+  noiseFilter.type = "highpass";
+  noiseFilter.frequency.setValueAtTime(1000, time);
   
-  osc1.connect(gain);
-  osc2.connect(gain);
-  connectToMaster(gain);
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.setValueAtTime(0.4, time);
+  noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
   
-  osc1.frequency.setValueAtTime(250, time);
-  osc2.frequency.setValueAtTime(400, time);
+  noise.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  connectToMaster(noiseGain);
   
-  gain.gain.setValueAtTime(0.2, time); // 0.3 -> 0.2
-  gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
-  
-  osc1.start(time);
-  osc1.stop(time + 0.2);
-  osc2.start(time);
-  osc2.stop(time + 0.2);
+  noise.start(time);
+  noise.stop(time + 0.2);
 }
 
 function playHiHat(ctx: AudioContext, time: number) {
-  const osc = ctx.createOscillator();
+  // ホワイトノイズ成分
+  const bufferSize = ctx.sampleRate * 0.05;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  
+  const noise = ctx.createBufferSource();
+  noise.buffer = buffer;
+  
+  const filter = ctx.createBiquadFilter();
+  filter.type = "highpass";
+  filter.frequency.setValueAtTime(7000, time);
+  
   const gain = ctx.createGain();
-  
-  osc.type = "square";
-  osc.connect(gain);
-  connectToMaster(gain);
-  
-  osc.frequency.setValueAtTime(8000, time);
-  
-  gain.gain.setValueAtTime(0.03, time); // 0.05 -> 0.03
+  gain.gain.setValueAtTime(0.15, time);
   gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
   
-  osc.start(time);
-  osc.stop(time + 0.05);
+  noise.connect(filter);
+  filter.connect(gain);
+  connectToMaster(gain);
+  
+  noise.start(time);
+  noise.stop(time + 0.05);
 }
 
 // === シーケンサー (Look-ahead スケジューリング) ===
@@ -177,6 +230,7 @@ let sequencePalette: PaletteChord[] = [];
 let sequenceBpm = 120;
 let sequencePattern: "none" | "4beat" | "8beat" | "16beat" = "none";
 let sequenceOnStop: (() => void) | null = null;
+let sequenceOnTick: ((index: number) => void) | null = null; // 現在のコードインデックスを通知用
 let sequenceIsLooping = false; // ループ状態
 
 function scheduleNote(beatNumber: number, time: number) {
@@ -216,6 +270,9 @@ function scheduleNote(beatNumber: number, time: number) {
   // コードのスケジューリング
   if (beatNumber % beatPerChord === 0) {
     if (currentChordIndex < sequencePalette.length) {
+      if (sequenceOnTick) {
+        sequenceOnTick(currentChordIndex);
+      }
       const sustainSec = (60 / sequenceBpm) * 2;
       playChord(sequencePalette[currentChordIndex], sustainSec, time);
       currentChordIndex++;
@@ -267,8 +324,9 @@ export function playPaletteSequence(
   palette: PaletteChord[],
   bpm: number,
   pattern: "none" | "4beat" | "8beat" | "16beat",
-  isLooping: boolean, // 引数を追加
-  onStop: () => void
+  isLooping: boolean,
+  onStop: () => void,
+  onTick: (index: number) => void // 追加: 現在のインデックスを返す
 ): void {
   const ctx = getAudioContext();
   if (ctx.state === "suspended") ctx.resume();
@@ -285,6 +343,7 @@ export function playPaletteSequence(
   sequenceBpm = bpm;
   sequencePattern = pattern;
   sequenceOnStop = onStop;
+  sequenceOnTick = onTick; // 保存
   sequenceIsLooping = isLooping; // 保存
   
   current16thNote = 0;

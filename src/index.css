@@ -76,7 +76,8 @@ body::before {
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .main-content {
@@ -89,6 +90,335 @@ body::before {
   margin: 0 auto;
   width: 100%;
 }
+
+/* ===== Workspace Center (作品エリア) ===== */
+.workspace-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start; /* 上側に寄せる */
+  padding: 4px 16px 100px; /* 上部を詰め、下部(ボトムシート用)を広げる */
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  overflow: hidden;
+}
+
+.workspace-palette {
+  width: 100%;
+  max-width: 600px;
+  max-height: 85vh;
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px; /* 8px -> 4px */
+  overflow: hidden;
+}
+
+.palette-header-title {
+  margin-bottom: 0px;
+  flex-shrink: 0;
+}
+
+.section-title.mini {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1; /* 行間の余白を削る */
+}
+
+
+.section-title.mini::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.palette-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.palette-actions-left {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  width: 192px; /* 3つのボタンを均等に配置するための固定幅 */
+}
+
+.palette-actions-center {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0px; /* 2px -> 0px */
+  margin-left: auto;
+  padding-right: 8px;
+}
+
+
+.playback-item.mini {
+  display: flex;
+  align-items: center;
+  gap: 2px; /* 6px -> 2px に縮小してボックスに接近 */
+}
+
+
+.playback-label.mini {
+  font-size: 8px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  width: auto; /* 固定幅を解除 */
+  min-width: 28px; /* 「DRUM」が収まる最小幅を確保して左揃えを維持 */
+  text-align: left;
+  margin-top: 1px;
+}
+
+
+
+.bpm-number-input.mini,
+.drum-select.mini {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 11px;
+  padding: 2px 4px;
+  height: 22px;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  width: 72px;
+  text-align: left;
+}
+
+.bpm-number-input.mini:focus,
+.drum-select.mini:focus {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--tonic-border);
+}
+
+.bpm-number-input.mini {
+  text-align: center;
+}
+
+.palette-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.palette-canvas {
+  min-height: 80px; /* ちょっとだけ高さを広げてセグメントラベルと共存 */
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* 左から並べる */
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: var(--radius-sm);
+  padding: 16px 12px 12px; /* 上部ラベル用に少し余白を追加 */
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+  overflow-x: auto; /* 水平スクロールを有効化 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.palette-canvas::-webkit-scrollbar {
+  height: 4px;
+}
+
+.palette-canvas::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.palette-canvas::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+
+.palette-empty-canvas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 60px;
+}
+
+.palette-empty-canvas .hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.palette-chords.center {
+  display: flex;
+  flex-wrap: nowrap; /* 溢れても折り返さない（スクロールで対応） */
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+/* === Key Segment Styles === */
+.palette-key-segment {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  position: relative;
+}
+
+.segment-key-label {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--tonic);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: var(--bg-primary);
+  padding: 2px 8px;
+  border-radius: 4px;
+  position: absolute;
+  top: -8px;
+  left: 12px;
+  border: 1px solid var(--tonic-border);
+}
+
+.segment-chords {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.segment-arrow {
+  position: absolute;
+  right: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  margin: 0 !important;
+  z-index: 5;
+}
+
+
+
+/* 履歴セクションの全件表示化 */
+.palette-history {
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.history-header {
+  flex-shrink: 0;
+  margin-bottom: 6px;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+
+/* ===== Chord Selector Sheet (ボトムシート) ===== */
+.chord-selector-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(15, 15, 30, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px 20px 0 0;
+  z-index: 1000;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chord-selector-sheet.expanded {
+  background: rgba(15, 15, 30, 0.97);
+}
+
+.selector-header-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px 8px;
+  cursor: pointer;
+}
+
+.selector-tab-pills {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  justify-content: center;
+}
+
+.selector-tab-pill {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.selector-tab-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.selector-tab-pill.active {
+  background: var(--tonic-bg);
+  border-color: var(--tonic-border);
+  color: var(--tonic);
+}
+
+.selector-expanded-content {
+  padding: 0 16px 16px;
+  max-height: calc(60vh - 60px);
+  overflow-y: auto;
+}
+
+.selector-expanded-content::-webkit-scrollbar {
+  width: 4px;
+}
+.selector-expanded-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
 
 /* ===== Tab Navigation ===== */
 .tab-navigation {
@@ -300,6 +630,18 @@ body::before {
 .palette-pill:hover {
   transform: translateY(-2px);
   background: rgba(255, 255, 255, 0.08);
+}
+
+.palette-pill.playing {
+  border-color: #fff;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.4), inset 0 0 8px rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.palette-pill.playing .pill-name {
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
 }
 
 /* Functional Colors for Palette */
@@ -1213,17 +1555,20 @@ body::before {
   background: none;
   border: none;
   display: flex;
+  flex-direction: column; /* アイコンとテキストを縦に並べて設置面積を確保 */
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 2px;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 10px; /* 少し小さくして均等配置に収める */
   font-weight: 600;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 4px 2px;
   border-radius: 6px;
   transition: all 0.2s ease;
   white-space: nowrap;
   font-family: inherit;
+  width: 100%;
 }
 
 .btn-header-action:hover:not(:disabled) {

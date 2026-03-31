@@ -1,10 +1,9 @@
 import { useState, useMemo } from "react";
 import Header from "./components/Header";
-import TheoryPane from "./components/TheoryPane";
-import NonDiatonicPane from "./components/NonDiatonicPane";
 import CompositionPalette from "./components/CompositionPalette";
-import OnChordPane from "./components/OnChordPane";
+import ChordSelectorSheet from "./components/ChordSelectorSheet";
 import {
+
   getDiatonicChords,
   getNonDiatonicChords,
   getRecommendedIndices,
@@ -24,6 +23,7 @@ function App() {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isLooping, setIsLooping] = useState<boolean>(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [currentPlayingIndex, setCurrentPlayingIndex] = useState<number | null>(null);
   const [history, setHistory] = useState<PaletteChord[][]>([]);
 
 
@@ -43,8 +43,8 @@ function App() {
     [lastChord]
   );
 
-  const handleDiatonicClick = (chord: DiatonicChord, type: "triad" | "7th" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13") => {
-    const paletteChord = diatonicToPalette(chord, type);
+  const handleDiatonicClick = (chord: DiatonicChord, type: "triad" | "7th" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13", key: Key) => {
+    const paletteChord = diatonicToPalette(chord, type, key);
     const sustainSec = (60 / bpm) * 2;
     playChord(paletteChord, sustainSec);
     
@@ -117,14 +117,19 @@ function App() {
 
   const handlePlayAll = () => {
     setIsPlaying(true);
+    setCurrentPlayingIndex(0);
     playPaletteSequence(palette, bpm, drumPattern, isLooping, () => {
       setIsPlaying(false);
+      setCurrentPlayingIndex(null);
+    }, (idx) => {
+      setCurrentPlayingIndex(idx);
     });
   };
 
   const handleStop = () => {
     stopPaletteSequence();
     setIsPlaying(false);
+    setCurrentPlayingIndex(null);
   };
 
   const handleSaveToHistory = () => {
@@ -144,57 +149,16 @@ function App() {
 
   const handleKeyChange = (key: Key) => {
     setSelectedKey(key);
-    setPalette([]);
+    // setPalette([]); // キーを変えてもパレットを保持するように変更
     setEditingIndex(null);
   };
 
   return (
     <div className="app">
       <Header selectedKey={selectedKey} onKeyChange={handleKeyChange} />
-      <main className="main-content">
-        <div className="tab-navigation">
-          <button
-            className={`tab-btn ${activeTab === "diatonic" ? "active" : ""}`}
-            onClick={() => setActiveTab("diatonic")}
-          >
-            Diatonic Chords
-          </button>
-          <button
-            className={`tab-btn ${activeTab === "non-diatonic" ? "active" : ""}`}
-            onClick={() => setActiveTab("non-diatonic")}
-          >
-            Non-Diatonic
-          </button>
-          <button
-            className={`tab-btn ${activeTab === "on-chord" ? "active" : ""}`}
-            onClick={() => setActiveTab("on-chord")}
-          >
-            On-Chord
-          </button>
-        </div>
-
-        <div className="tab-content">
-          {activeTab === "diatonic" && (
-            <TheoryPane
-              chords={diatonicChords}
-              recommendedIndices={recommendedIndices}
-              onChordClick={handleDiatonicClick}
-            />
-          )}
-          {activeTab === "non-diatonic" && (
-            <NonDiatonicPane
-              chords={nonDiatonicChords}
-              onChordClick={handleNonDiatonicClick}
-            />
-          )}
-          {activeTab === "on-chord" && (
-            <OnChordPane
-              targetChord={lastChord}
-              onBassSelect={handleBassChange}
-            />
-          )}
-        </div>
-
+      
+      {/* 中央エリア：作品（パレット）*/}
+      <section className="workspace-center">
         <CompositionPalette
           palette={palette}
           bpm={bpm}
@@ -215,12 +179,23 @@ function App() {
           onRemoveFromHistory={handleRemoveFromHistory}
           editingIndex={editingIndex}
           onEditingIndexChange={(idx) => setEditingIndex(prev => prev === idx ? null : idx)}
+          currentPlayingIndex={currentPlayingIndex}
         />
-      </main>
-      <footer className="footer">
-        <p>Chord Palette — 直感的にコード進行を組み立てよう</p>
-        <p className="version-info">ver.2.0.0</p>
-      </footer>
+      </section>
+
+      {/* ボトムシート：コード選択 */}
+      <ChordSelectorSheet
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        diatonicChords={diatonicChords}
+        nonDiatonicChords={nonDiatonicChords}
+        recommendedIndices={recommendedIndices}
+        lastChord={lastChord}
+        onDiatonicClick={handleDiatonicClick}
+        onNonDiatonicClick={handleNonDiatonicClick}
+        onBassSelect={handleBassChange}
+        selectedKey={selectedKey}
+      />
     </div>
   );
 }

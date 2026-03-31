@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
 import type { PaletteChord } from "../utils/musicTheory";
 
 interface CompositionPaletteProps {
@@ -22,6 +21,7 @@ interface CompositionPaletteProps {
   onRemoveFromHistory: (index: number) => void;
   editingIndex: number | null;
   onEditingIndexChange: (index: number) => void;
+  currentPlayingIndex: number | null;
 }
 
 const FUNCTION_CLASSES: Record<string, string> = {
@@ -50,201 +50,219 @@ export default function CompositionPalette({
   onRemoveFromHistory,
   editingIndex,
   onEditingIndexChange,
+  currentPlayingIndex,
 }: CompositionPaletteProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const toggleExpand = () => setIsExpanded(!isExpanded);
+  // モバイル入力改善のためのローカルステート
+  const [localBpm, setLocalBpm] = useState<string>(bpm.toString());
+
+  // 外部からのBPM変更（履歴ロード等）に同期
+  useEffect(() => {
+    setLocalBpm(bpm.toString());
+  }, [bpm]);
+
+  const handleBpmChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    // 数字のみ許可（空文字も許可してタイピングしやすくする）
+    if (val === "" || /^\d+$/.test(val)) {
+      setLocalBpm(val);
+    }
+  };
+
+  const handleBpmBlur = () => {
+    let num = parseInt(localBpm, 10);
+    if (isNaN(num)) num = 100;
+    
+    // ユーザー指定の範囲 10-200 でクランプ
+    const clamped = Math.min(200, Math.max(10, num));
+    setLocalBpm(clamped.toString());
+    onBpmChange(clamped);
+  };
+
+  // 再生中のオートスクロール
+  useEffect(() => {
+    if (currentPlayingIndex !== null) {
+      const activePill = document.querySelector(".palette-pill.playing");
+      if (activePill) {
+        activePill.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "center",
+        });
+      }
+    }
+  }, [currentPlayingIndex]);
 
   return (
-    <motion.section 
-      className={`composition-palette ${isExpanded ? "expanded" : ""}`}
-      initial={false}
-      animate={{ 
-        height: isExpanded ? "auto" : "120px",
-        maxHeight: isExpanded ? "85vh" : "120px",
-      }}
-      transition={{ type: "spring", damping: 25, stiffness: 200 }}
-    >
-      {/* ドロワーハンドル (スマホ向け) */}
-      <div className="sheet-handle-wrapper" onClick={toggleExpand}>
-        <div className="sheet-handle" />
+    <div className="workspace-palette">
+      <div className="palette-header-title">
+        <h2 className="section-title mini">PALETTE</h2>
       </div>
+      {/* アクションバー */}
+      <div className="palette-action-bar">
+        <div className="palette-actions-left">
+          <button className="btn-header-action" onClick={onUndo} title="戻る">
+            <span className="btn-icon">↩</span>
+            <span className="btn-text">戻る</span>
+          </button>
+          <button className="btn-header-action" onClick={onSaveToHistory} disabled={palette.length === 0} title="保存">
+            <span className="btn-icon">💾</span>
+            <span className="btn-text">保存</span>
+          </button>
+          <button className="btn-header-action btn-clear-text" onClick={onClear} disabled={palette.length === 0} title="クリア">
+            <span className="btn-icon">✕</span>
+            <span className="btn-text">クリア</span>
+          </button>
+        </div>
 
-      <div className="sheet-content">
-        {/* コンジット・ヘッダー: 常に表示 */}
-        <div className="palette-header-compact">
-          <div className="header-status">
-            <h2 className="section-title mini">Palette</h2>
-            <div className="header-main-actions">
-              <button className="btn-header-action" onClick={(e) => { e.stopPropagation(); onUndo(); }} title="戻る">
-                <span className="btn-icon">↩</span>
-                <span className="btn-text">戻る</span>
-              </button>
-              <button className="btn-header-action" onClick={(e) => { e.stopPropagation(); onSaveToHistory(); }} disabled={palette.length === 0} title="保存">
-                <span className="btn-icon">💾</span>
-                <span className="btn-text">保存</span>
-              </button>
-              <button className="btn-header-action btn-clear-text" onClick={(e) => { e.stopPropagation(); onClear(); }} disabled={palette.length === 0} title="クリア">
-                <span className="btn-icon">✕</span>
-                <span className="btn-text">クリア</span>
-              </button>
-            </div>
+        {/* 中央: 再生設定 (BPM / Drum) */}
+        <div className="palette-actions-center">
+          <div className="playback-item mini">
+            <label className="playback-label mini">BPM</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={localBpm}
+              onChange={handleBpmChange}
+              onBlur={handleBpmBlur}
+              className="bpm-number-input mini"
+            />
           </div>
-          <div className="header-actions">
-            <button 
-              className={`btn-toggle btn-loop ${isLooping ? "active" : ""}`} 
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleLoop();
-              }}
-              title="ループ再生"
+          <div className="playback-item mini group-drum">
+            <label className="playback-label mini">Drum</label>
+            <select 
+              className="drum-select mini"
+              value={drumPattern}
+              onChange={(e) => onDrumPatternChange(e.target.value as any)}
             >
-              <span className="toggle-icon">🔁</span>
-            </button>
-            {!isPlaying ? (
-              <button 
-                className="btn-action btn-play mini" 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPlayAll();
-                }} 
-                disabled={palette.length === 0}
-              >
-                <span className="btn-icon">▶</span>
-              </button>
-            ) : (
-              <button className="btn-action btn-stop mini" onClick={onStop}>
-                <span className="btn-icon">■</span>
-              </button>
-            )}
-            <button className={`btn-toggle ${isExpanded ? "active" : ""}`} onClick={toggleExpand}>
-              <span className="toggle-icon">{isExpanded ? "↓" : "↑"}</span>
-            </button>
+              <option value="none">None</option>
+              <option value="4beat">4 Beat</option>
+              <option value="8beat">8 Beat</option>
+              <option value="16beat">16 Beat</option>
+            </select>
           </div>
         </div>
 
-        {/* 展開時に表示される詳細セクション */}
-        <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              transition={{ duration: 0.2 }}
-              className="palette-expanded-content"
+        <div className="palette-actions-right">
+          <button 
+            className={`btn-toggle btn-loop ${isLooping ? "active" : ""}`} 
+            onClick={onToggleLoop}
+            title="ループ再生"
+          >
+            <span className="toggle-icon">🔁</span>
+          </button>
+          {!isPlaying ? (
+            <button 
+              className="btn-action btn-play mini" 
+              onClick={onPlayAll} 
+              disabled={palette.length === 0}
             >
-              <div className="palette-main-row">
-                <div className="palette-area expanded">
-                  <div className="palette-chords">
-                    {palette.length === 0 ? (
-                      <div className="palette-empty-spot">
-                        <p className="hint">コードを選択して追加</p>
-                      </div>
-                    ) : (
-                      <div className="palette-main-row">
-                        <div className="palette-chords">
-                          {palette.map((chord, idx) => (
-                            <div key={idx} className="palette-item-wrapper">
-                              {idx > 0 && <span className="palette-arrow">→</span>}
-                              <div 
-                                className={`palette-pill ${FUNCTION_CLASSES[chord.function] || ""} ${!chord.isDiatonic ? "pill-nondiatonic" : ""} ${editingIndex === idx ? "editing" : ""}`}
-                                onClick={() => onEditingIndexChange(idx)}
-                              >
-                                <span className="pill-degree">{chord.label}</span>
-                                <span className="pill-name">{chord.displayName}</span>
-                                <span 
-                                  className="pill-remove" 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRemove(idx);
-                                  }}
-                                  title="削除"
-                                >
-                                  ✕
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                          {palette.length < 8 && (
-                            <div className="palette-item-wrapper">
-                              {palette.length > 0 && <span className="palette-arrow">→</span>}
-                              <div className="palette-empty-spot">
-                                <p className="hint">+</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+              <span className="btn-icon">▶</span>
+            </button>
+          ) : (
+            <button className="btn-action btn-stop mini" onClick={onStop}>
+              <span className="btn-icon">■</span>
+            </button>
+          )}
+        </div>
+      </div>
 
-                <div className="playback-controls">
-                  <div className="playback-item">
-                    <label className="playback-label">BPM</label>
-                    <input
-                      type="number"
-                      min="40"
-                      max="240"
-                      value={bpm}
-                      onChange={(e) => onBpmChange(Math.min(240, Math.max(40, Number(e.target.value))))}
-                      className="bpm-number-input"
-                    />
-                  </div>
-                  <div className="playback-item group-drum">
-                    <label className="playback-label">Drum</label>
-                    <select 
-                      className="drum-select"
-                      value={drumPattern}
-                      onChange={(e) => onDrumPatternChange(e.target.value as any)}
-                    >
-                      <option value="none">None</option>
-                      <option value="4beat">4 Beat</option>
-                      <option value="8beat">8 Beat</option>
-                      <option value="16beat">16 Beat</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
+      {/* コード進行表示エリア */}
+      <div className="palette-canvas">
+        {palette.length === 0 ? (
+          <div className="palette-empty-canvas">
+            <p className="hint">コードを選択して追加</p>
+          </div>
+        ) : (
+          <div className="palette-chords center">
+            {/* キーごとにグループ化して表示 */}
+            {(() => {
+              const segments: { key: string; chords: { chord: PaletteChord; originalIndex: number }[] }[] = [];
+              palette.forEach((chord, idx) => {
+                const currentKey = chord.key || "C"; // フォールバック
+                if (segments.length === 0 || segments[segments.length - 1].key !== currentKey) {
+                  segments.push({ key: currentKey, chords: [] });
+                }
+                segments[segments.length - 1].chords.push({ chord, originalIndex: idx });
+              });
 
-
-              {/* 履歴セクション */}
-              {history.length > 0 && (
-                <div className="palette-history">
-                  <div className="history-header">
-                    <span className="history-icon">🕒</span>
-                    <h3 className="history-title">History</h3>
-                  </div>
-                  <div className="history-list">
-                    {history.map((item, idx) => (
-                      <div key={idx} className="history-item-container">
-                        <button
-                          className="history-item"
-                          onClick={() => onLoadFromHistory(idx)}
+              return segments.map((segment, sIdx) => (
+                <div key={sIdx} className="palette-key-segment">
+                  <div className="segment-key-label">Key: {segment.key}</div>
+                  <div className="segment-chords">
+                    {segment.chords.map(({ chord, originalIndex: idx }, cIdx) => (
+                      <div key={idx} className="palette-item-wrapper">
+                        {cIdx > 0 && <span className="palette-arrow">→</span>}
+                        <div 
+                          className={`palette-pill ${FUNCTION_CLASSES[chord.function] || ""} ${!chord.isDiatonic ? "pill-nondiatonic" : ""} ${editingIndex === idx ? "editing" : ""} ${currentPlayingIndex === idx ? "playing" : ""}`}
+                          onClick={() => onEditingIndexChange(idx)}
                         >
-                          <span className="history-number">#{history.length - idx}</span>
-                          <span className="history-summary">
-                            {item.map((c) => c.displayName).join(" → ")}
+                          <span className="pill-degree">{chord.label}</span>
+                          <span className="pill-name">{chord.displayName}</span>
+                          <span 
+                            className="pill-remove" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRemove(idx);
+                            }}
+                            title="削除"
+                          >
+                            ✕
                           </span>
-                        </button>
-                        <button 
-                          className="btn-history-remove" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRemoveFromHistory(idx);
-                          }}
-                          title="履歴から削除"
-                        >
-                          ✕
-                        </button>
+                        </div>
                       </div>
                     ))}
                   </div>
+                  {sIdx < segments.length - 1 && <span className="palette-arrow segment-arrow">→</span>}
                 </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+              ));
+            })()}
+            {palette.length > 0 && palette.length < 8 && (
+              <div className="palette-item-wrapper">
+                <span className="palette-arrow">→</span>
+                <div className="palette-empty-spot mini">
+                  <p className="hint">+</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
-    </motion.section>
+
+
+      {/* 履歴セクション */}
+      {history.length > 0 && (
+        <div className="palette-history">
+          <div className="history-header">
+            <span className="history-icon">🕒</span>
+            <h3 className="history-title">History</h3>
+          </div>
+          <div className="history-list">
+            {history.map((item, idx) => (
+              <div key={idx} className="history-item-container">
+                <button
+                  className="history-item"
+                  onClick={() => onLoadFromHistory(idx)}
+                >
+                  <span className="history-number">#{history.length - idx}</span>
+                  <span className="history-summary">
+                    {item.map((c) => c.displayName).join(" → ")}
+                  </span>
+                </button>
+                <button 
+                  className="btn-history-remove" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveFromHistory(idx);
+                  }}
+                  title="履歴から削除"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

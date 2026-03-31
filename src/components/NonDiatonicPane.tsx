@@ -1,9 +1,10 @@
-import type { NonDiatonicChord, NonDiatonicCategory, PaletteChord } from "../utils/musicTheory";
+import type { NonDiatonicChord, NonDiatonicCategory, PaletteChord, Key } from "../utils/musicTheory";
 import { nonDiatonicToPalette, CATEGORY_LABELS } from "../utils/musicTheory";
 
 interface NonDiatonicPaneProps {
   chords: NonDiatonicChord[];
   onChordClick: (chord: PaletteChord) => void;
+  selectedKey: Key;
 }
 
 const CATEGORY_ORDER: NonDiatonicCategory[] = ["secdom", "subdm", "tritone", "dim", "aug"];
@@ -21,7 +22,7 @@ const FUNCTION_CLASSES: Record<string, string> = {
   SD: "card-subdominant",
 };
 
-export default function NonDiatonicPane({ chords, onChordClick }: NonDiatonicPaneProps) {
+export default function NonDiatonicPane({ chords, onChordClick, selectedKey }: NonDiatonicPaneProps) {
   const grouped = CATEGORY_ORDER.map((cat) => ({
     category: cat,
     label: CATEGORY_LABELS[cat],
@@ -58,7 +59,7 @@ export default function NonDiatonicPane({ chords, onChordClick }: NonDiatonicPan
                     <span className="chord-degree">{chord.label}</span>
                     <button
                       className="chord-name-btn"
-                      onClick={() => onChordClick(nonDiatonicToPalette(chord, "triad"))}
+                      onClick={() => onChordClick(nonDiatonicToPalette(chord, "triad", selectedKey))}
                       title={`${chord.name} を追加`}
                     >
                       {chord.name}
@@ -66,7 +67,7 @@ export default function NonDiatonicPane({ chords, onChordClick }: NonDiatonicPan
                     {chord.name7th && (
                       <button
                         className="chord-7th-btn"
-                        onClick={() => onChordClick(nonDiatonicToPalette(chord, "7th"))}
+                        onClick={() => onChordClick(nonDiatonicToPalette(chord, "7th", selectedKey))}
                         title={`${chord.name7th} を追加`}
                       >
                         {chord.name7th}
