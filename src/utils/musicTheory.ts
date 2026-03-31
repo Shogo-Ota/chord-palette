@@ -76,7 +76,7 @@ export function getDiatonicChords(key: Key): DiatonicChord[] {
  */
 export function diatonicToPalette(
   chord: DiatonicChord,
-  type: "triad" | "7th" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13",
+  type: "triad" | "7th" | "6" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13",
   key: Key,
   beats: number = 2
 ): PaletteChord {
@@ -128,6 +128,18 @@ export function diatonicToPalette(
       displayName = noteName + "sus4";
       intervals = TRIAD_INTERVALS.sus4;
       break;
+    case "6":
+      {
+        const isMajor = [0, 3, 4, 5, 7, 8, 9].includes(chord.degreeIndex); // I, IV, V (C, F, G in major)
+        if (isMajor) {
+          displayName = noteName + "6";
+          intervals = [0, 4, 7, 9];
+        } else {
+          displayName = noteName + "m6";
+          intervals = [0, 3, 7, 9];
+        }
+      }
+      break;
     default:
       // Triad
       displayName = chord.name;
@@ -157,6 +169,8 @@ export function diatonicToPalette(
         ? chord.degree + "(♯11)"
         : type === "b13"
         ? chord.degree + "(♭13)"
+        : type === "6"
+        ? (chord.name.includes("m") ? chord.degree + "m6" : chord.degree + "6")
         : chord.degree,
     function: chord.function,
     rootNote: chord.rootNote,

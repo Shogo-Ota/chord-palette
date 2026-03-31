@@ -3,7 +3,7 @@ import type { DiatonicChord, Key } from "../utils/musicTheory";
 interface TheoryPaneProps {
   chords: DiatonicChord[];
   recommendedIndices: number[];
-  onChordClick: (chord: DiatonicChord, type: "triad" | "7th" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13", key: Key) => void;
+  onChordClick: (chord: DiatonicChord, type: "triad" | "7th" | "6" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13", key: Key) => void;
   selectedKey: Key;
 }
 
@@ -73,6 +73,13 @@ export default function TheoryPane({
                 title={`${chord.name7th} をパレットに追加`}
               >
                 {chord.name7th}
+              </button>
+              <button
+                className="chord-6th-btn"
+                onClick={() => onChordClick(chord, "6", selectedKey)}
+                title={`${chord.name}6 / m6 をパレットに追加`}
+              >
+                6
               </button>
               <div className="chord-sus-group">
                 <button
