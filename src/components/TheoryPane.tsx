@@ -74,23 +74,24 @@ export default function TheoryPane({
               >
                 {chord.name7th}
               </button>
-              <button
-                className="chord-6th-btn"
-                onClick={() => onChordClick(chord, "6", selectedKey)}
-                title={`${chord.name}6 / m6 をパレットに追加`}
-              >
-                6
-              </button>
-              <div className="chord-sus-group">
+              
+              <div className="chord-var-group">
                 <button
-                  className="chord-sus-btn"
+                  className="chord-var-btn"
+                  onClick={() => onChordClick(chord, "6", selectedKey)}
+                  title={`${chord.name}6 / m6 をパレットに追加`}
+                >
+                  6
+                </button>
+                <button
+                  className="chord-var-btn"
                   onClick={() => onChordClick(chord, "sus2", selectedKey)}
                   title={`${chord.name.replace(/m($|\(♭5\))/, "")}sus2 をパレットに追加`}
                 >
                   sus2
                 </button>
                 <button
-                  className="chord-sus-btn"
+                  className="chord-var-btn"
                   onClick={() => onChordClick(chord, "sus4", selectedKey)}
                   title={`${chord.name.replace(/m($|\(♭5\))/, "")}sus4 をパレットに追加`}
                 >
