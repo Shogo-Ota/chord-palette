@@ -12,7 +12,7 @@ import {
   type DiatonicChord,
   type PaletteChord,
 } from "./utils/musicTheory";
-import { playChord, playPaletteSequence, stopPaletteSequence } from "./utils/audioEngine";
+import { playChord, playPaletteSequence, stopPaletteSequence, resetAudioEngine, ensureAudioContextRunning } from "./utils/audioEngine";
 
 const ChordDurationOptions = ["1", "1/2", "1/4"] as const;
 
@@ -28,6 +28,36 @@ function App() {
   const [currentPlayingIndex, setCurrentPlayingIndex] = useState<number | null>(null);
   const [history, setHistory] = useState<PaletteChord[][]>([]);
   const [chordDurationMode, setChordDurationMode] = useState<"1" | "1/2" | "1/4">("1");
+
+  // === デバッグパネル ===
+  const [debugVisible, setDebugVisible] = useState(false);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+
+  const addDebugLog = (msg: string) => {
+    const time = new Date().toLocaleTimeString('ja-JP', { hour12: false });
+    setDebugLog(prev => [`[${time}] ${msg}`, ...prev].slice(0, 20));
+  };
+
+  const runAudioDiag = async () => {
+    addDebugLog("=== 診断開始 ===");
+    try {
+      const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
+      if (!AudioCtx) { addDebugLog("❌ AudioContext 非対応"); return; }
+      addDebugLog("✅ AudioContext 使用可能");
+      await ensureAudioContextRunning();
+      // AudioContext 情報は playChord 後に表示
+      addDebugLog("▶ テスト音を再生します...");
+      const testChord = {
+        label: "C", displayName: "C", function: "T" as const,
+        rootNote: 60, intervals: [0, 4, 7], beats: 2,
+        isDiatonic: true, key: "C" as const,
+      };
+      playChord(testChord, 1.0);
+      addDebugLog("✅ playChord() 呼び出し完了");
+    } catch(e: any) {
+      addDebugLog(`❌ エラー: ${e?.message ?? String(e)}`);
+    }
+  };
 
 
   const diatonicChords = useMemo(
@@ -210,6 +240,45 @@ function App() {
         onBassSelect={handleBassChange}
         selectedKey={selectedKey}
       />
+
+      {/* ===  デバッグパネル（一時的） === */}
+      <div style={{
+        position: "fixed", bottom: 0, right: 0, zIndex: 9999,
+        display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, padding: 8,
+      }}>
+        <button
+          onClick={() => setDebugVisible(v => !v)}
+          style={{
+            background: "#ff4444", color: "#fff", border: "none", borderRadius: 6,
+            padding: "6px 12px", fontSize: 12, fontWeight: "bold", cursor: "pointer",
+          }}
+        >
+          🔧 DEBUG
+        </button>
+        {debugVisible && (
+          <div style={{
+            background: "rgba(0,0,0,0.92)", color: "#0f0", fontFamily: "monospace",
+            fontSize: 11, padding: 10, borderRadius: 8, width: 320, maxHeight: 300,
+            overflowY: "auto", border: "1px solid #0f0",
+          }}>
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              <button onClick={runAudioDiag} style={{
+                background: "#0a0", color: "#fff", border: "none", borderRadius: 4,
+                padding: "4px 10px", fontSize: 11, cursor: "pointer", flex: 1,
+              }}>▶ 音テスト &amp; 診断</button>
+              <button onClick={() => { resetAudioEngine(); addDebugLog("🔄 AudioEngine リセット"); }} style={{
+                background: "#a60", color: "#fff", border: "none", borderRadius: 4,
+                padding: "4px 10px", fontSize: 11, cursor: "pointer", flex: 1,
+              }}>🔄 エンジンリセット</button>
+            </div>
+            <div style={{ color: "#aaa", marginBottom: 4 }}>ver: 2.2.1</div>
+            {debugLog.length === 0 && <div style={{ color: "#888" }}>「音テスト &amp; 診断」を押してください</div>}
+            {debugLog.map((line, i) => (
+              <div key={i} style={{ borderBottom: "1px solid #222", paddingBottom: 2, marginBottom: 2 }}>{line}</div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
