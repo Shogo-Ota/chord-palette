@@ -148,30 +148,18 @@ export function diatonicToPalette(
       break;
   }
 
+  const LABEL_SUFFIX: Partial<Record<typeof type, string>> = {
+    sus2: "sus2", sus4: "sus4",
+    "9": "(9)", "11": "(11)", "13": "(13)",
+    b9: "(♭9)", "#9": "(♯9)", "#11": "(♯11)", b13: "(♭13)",
+  };
+  const labelSuffix = type === "6"
+    ? (chord.name.includes("m") ? "m6" : "6")
+    : (LABEL_SUFFIX[type] ?? "");
+
   return {
     displayName,
-    label:
-      type === "sus2"
-        ? chord.degree + "sus2"
-        : type === "sus4"
-        ? chord.degree + "sus4"
-        : type === "9"
-        ? chord.degree + "(9)"
-        : type === "11"
-        ? chord.degree + "(11)"
-        : type === "13"
-        ? chord.degree + "(13)"
-        : type === "b9"
-        ? chord.degree + "(♭9)"
-        : type === "#9"
-        ? chord.degree + "(♯9)"
-        : type === "#11"
-        ? chord.degree + "(♯11)"
-        : type === "b13"
-        ? chord.degree + "(♭13)"
-        : type === "6"
-        ? (chord.name.includes("m") ? chord.degree + "m6" : chord.degree + "6")
-        : chord.degree,
+    label: chord.degree + labelSuffix,
     function: chord.function,
     rootNote: chord.rootNote,
     intervals,

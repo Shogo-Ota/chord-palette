@@ -32,17 +32,6 @@ export default function NonDiatonicPane({ chords, onChordClick, selectedKey }: N
 
   return (
     <section className="ndc-pane">
-      <div className="pane-info-row">
-        <div className="pane-info-main">
-          <span className="pane-info-label">Non-Diatonic</span>
-          <p className="section-desc">借用・セカンダリードミナント・裏コード</p>
-        </div>
-        <div className="function-legend">
-          <span className="legend-item dominant">D: DOMINANT</span>
-          <span className="legend-item subdominant">SD: SUB-DOM</span>
-        </div>
-      </div>
-      
       <div className="ndc-categories">
         {grouped.map(({ category, label, icon, chords: catChords }) => (
           <div key={category} className="ndc-category">

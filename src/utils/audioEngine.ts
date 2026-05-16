@@ -39,17 +39,6 @@ function getAudioContext(): AudioContext {
 }
 
 /**
- * AudioContext がサスペンドされていたら再開する
- * iOS Safari は最初のユーザー操作後に suspended 状態になる
- */
-async function ensureAudioContextRunning(): Promise<void> {
-  const ctx = getAudioContext();
-  if (ctx.state === "suspended") {
-    await ctx.resume();
-  }
-}
-
-/**
  * 音源をマスターゲインに接続するためのヘルパー
  */
 function connectToMaster(node: AudioNode) {
@@ -394,4 +383,3 @@ export function resetAudioEngine(): void {
   }
 }
 
-export { ensureAudioContextRunning };

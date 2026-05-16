@@ -39,17 +39,6 @@ export default function TheoryPane({
 }: TheoryPaneProps) {
   return (
     <section className="theory-pane">
-      <div className="pane-info-row">
-        <div className="pane-info-main">
-          <span className="pane-info-label">Diatonic Chords</span>
-          <p className="section-desc">コードをクリックしてパレットに追加</p>
-        </div>
-        <div className="function-legend">
-          <span className="legend-item tonic">T: TONIC</span>
-          <span className="legend-item subdominant">SD: SUB-DOM</span>
-          <span className="legend-item dominant">D: DOMINANT</span>
-        </div>
-      </div>
       <div className="chord-grid">
         {chords.map((chord) => {
           const isRecommended = recommendedIndices.includes(chord.degreeIndex);

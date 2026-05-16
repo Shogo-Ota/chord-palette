@@ -98,9 +98,6 @@ export default function CompositionPalette({
 
   return (
     <div className="workspace-palette">
-      <div className="palette-header-title">
-        <h2 className="section-title mini">PALETTE</h2>
-      </div>
       {/* アクションバー */}
       <div className="palette-action-bar">
         <div className="palette-actions-left">
@@ -234,14 +231,6 @@ export default function CompositionPalette({
                 </div>
               ));
             })()}
-            {palette.length > 0 && palette.length < 8 && (
-              <div className="palette-item-wrapper">
-                <span className="palette-arrow">→</span>
-                <div className="palette-empty-spot mini">
-                  <p className="hint">+</p>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>

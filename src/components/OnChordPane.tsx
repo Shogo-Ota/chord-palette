@@ -15,12 +15,8 @@ export default function OnChordPane({ targetChord, onBassSelect }: OnChordPanePr
   if (!targetChord) {
     return (
       <section className="onchord-pane empty-state">
-        <div className="pane-info-row">
-          <span className="pane-info-label">On-Chord</span>
-          <p className="section-desc">直前に追加したコードのベース音を変更します</p>
-        </div>
         <div className="onchord-empty">
-          <p>オンコードを設定するには、まずパレットにコードを追加してください。</p>
+          <p>パレットにコードを追加してください。</p>
         </div>
       </section>
     );
@@ -30,11 +26,6 @@ export default function OnChordPane({ targetChord, onBassSelect }: OnChordPanePr
 
   return (
     <section className="onchord-pane">
-      <div className="pane-info-row">
-        <span className="pane-info-label">On-Chord</span>
-        <p className="section-desc">直前に追加したコードのベース音を変更します</p>
-      </div>
-
       <div className="onchord-target">
         <span className="onchord-label">対象コード:</span>
         <span className="onchord-current">{targetChord.displayName}</span>
