@@ -6,6 +6,9 @@ import type { PaletteChord } from "./musicTheory";
 let audioContext: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let limiter: DynamicsCompressorNode | null = null;
+// iOS 画面収録ブー音対策: GC されないようモジュールレベルで保持
+let micStream: MediaStream | null = null;
+let micSourceNode: MediaStreamAudioSourceNode | null = null;
 
 function getAudioContext(): AudioContext {
   if (!audioContext) {
@@ -34,12 +37,17 @@ function getAudioContext(): AudioContext {
     limiter.connect(audioContext.destination);
 
     // iOS 画面収録のブー音対策:
-    // getUserMedia(audio) を呼ぶことで AVAudioSession を .playAndRecord カテゴリに切り替える。
-    // マイクON収録と同じ高品位な音声パスになり、ノイズが解消される。
-    // ストリームは即停止するため実際の録音は行わない。
-    // ユーザージェスチャー（コードタップ）中に呼ばれるため iOS の制約を満たす。
+    // getUserMedia(audio) で AVAudioSession を .playAndRecord カテゴリに切り替える。
+    // ★ ストリームを即停止すると iOS がセッションを解除してしまうため、
+    //   MediaStreamSourceNode として AudioContext に接続したまま保持する。
+    //   destination に繋がないのでマイク音声は一切出力されない（エコーなし）。
+    //   モジュール変数で参照を保持することで GC を防ぎセッションを維持する。
     navigator.mediaDevices?.getUserMedia({ audio: true })
-      .then((stream) => stream.getTracks().forEach((t) => t.stop()))
+      .then((stream) => {
+        micStream = stream;
+        micSourceNode = audioContext!.createMediaStreamSource(stream);
+        // destination に接続しない → マイク音は出力されない
+      })
       .catch(() => {}); // 権限拒否・非対応環境は無視
   }
   return audioContext;
@@ -398,6 +406,11 @@ export function stopPaletteSequence(): void {
 // 音声エンジンが壊れた場合に完全に再初期化する
 export function resetAudioEngine(): void {
   stopPaletteSequence();
+  if (micStream) {
+    micStream.getTracks().forEach((t) => t.stop());
+    micStream = null;
+    micSourceNode = null;
+  }
   if (audioContext) {
     audioContext.close().catch(() => {});
     audioContext = null;
