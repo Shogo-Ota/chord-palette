@@ -34,6 +34,13 @@ function getAudioContext(): AudioContext {
     // 接続: 各音源 → masterGain → limiter → destination
     masterGain.connect(limiter);
     limiter.connect(audioContext.destination);
+
+    // 画面録画などによる AudioContext 中断を検知して自動復帰
+    audioContext.onstatechange = () => {
+      if (audioContext && audioContext.state === "suspended") {
+        audioContext.resume().catch(() => {});
+      }
+    };
   }
   return audioContext;
 }
@@ -61,12 +68,11 @@ function midiToFreq(midi: number): number {
  * ★ Fix 4: square波をやめて sine + triangle に変更（倍音が少なく合算しても歪まない）
  * ★ Fix 5: 各音のゲインを音数に応じてスケーリング
  */
-export function playChord(chord: PaletteChord, durationSec: number = 0.8, time?: number): void {
+export async function playChord(chord: PaletteChord, durationSec: number = 0.8, time?: number): Promise<void> {
   const ctx = getAudioContext();
-  
-  // 非同期で resume（エラー握りつぶし）
+
   if (ctx.state === "suspended") {
-    ctx.resume().catch(() => {});
+    await ctx.resume();
   }
 
   const now = time !== undefined ? time : ctx.currentTime;
@@ -298,7 +304,13 @@ function nextNote() {
 
 function scheduler() {
   const ctx = getAudioContext();
-  
+
+  if (ctx.state === "suspended") {
+    ctx.resume().catch(() => {});
+    if (isPlaying) sequenceTimerId = window.setTimeout(scheduler, 100);
+    return;
+  }
+
   while (nextNoteTime < ctx.currentTime + 0.2) {
     scheduleNote(current16thNote, nextNoteTime);
     nextNote();
