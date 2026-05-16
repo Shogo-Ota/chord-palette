@@ -10,6 +10,30 @@ let limiter: DynamicsCompressorNode | null = null;
 let micStream: MediaStream | null = null;
 let micSourceNode: MediaStreamAudioSourceNode | null = null;
 
+/**
+ * iOS 画面収録のブー音対策:
+ * getUserMedia(audio) で AVAudioSession を .playAndRecord カテゴリに切り替える。
+ * ストリームを MediaStreamSourceNode として保持し続けることでセッションを維持する
+ * （destination に繋がないのでマイク音声は出力されない）。
+ * コードタップのたびに呼び、画面収録開始後にアプリを開いた場合も再確立できる。
+ */
+function activateMicSession(): void {
+  // 既にアクティブなストリームがあればスキップ
+  const isActive = micStream &&
+    micStream.getAudioTracks().some((t) => t.readyState === "live");
+  if (isActive) return;
+
+  navigator.mediaDevices?.getUserMedia({ audio: true })
+    .then((stream) => {
+      // 古いストリームがあれば停止
+      micStream?.getTracks().forEach((t) => t.stop());
+      micStream = stream;
+      micSourceNode = getAudioContext().createMediaStreamSource(stream);
+      // destination に接続しない → マイク音は出力されない（エコーなし）
+    })
+    .catch(() => {}); // 権限拒否・非対応環境は無視
+}
+
 function getAudioContext(): AudioContext {
   if (!audioContext) {
     const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
@@ -36,19 +60,8 @@ function getAudioContext(): AudioContext {
     masterGain.connect(limiter);
     limiter.connect(audioContext.destination);
 
-    // iOS 画面収録のブー音対策:
-    // getUserMedia(audio) で AVAudioSession を .playAndRecord カテゴリに切り替える。
-    // ★ ストリームを即停止すると iOS がセッションを解除してしまうため、
-    //   MediaStreamSourceNode として AudioContext に接続したまま保持する。
-    //   destination に繋がないのでマイク音声は一切出力されない（エコーなし）。
-    //   モジュール変数で参照を保持することで GC を防ぎセッションを維持する。
-    navigator.mediaDevices?.getUserMedia({ audio: true })
-      .then((stream) => {
-        micStream = stream;
-        micSourceNode = audioContext!.createMediaStreamSource(stream);
-        // destination に接続しない → マイク音は出力されない
-      })
-      .catch(() => {}); // 権限拒否・非対応環境は無視
+    // 初回作成時も mic セッションを確立しておく
+    activateMicSession();
   }
   return audioContext;
 }
@@ -77,6 +90,10 @@ function midiToFreq(midi: number): number {
  * ★ Fix 5: 各音のゲインを音数に応じてスケーリング
  */
 export async function playChord(chord: PaletteChord, durationSec: number = 0.8, time?: number): Promise<void> {
+  // ユーザージェスチャーのタイミングで mic セッションを確認・再確立
+  // 画面収録オン後にアプリを開いた場合もここで .playAndRecord セッションが取れる
+  activateMicSession();
+
   const ctx = getAudioContext();
 
   if (ctx.state === "suspended") {
