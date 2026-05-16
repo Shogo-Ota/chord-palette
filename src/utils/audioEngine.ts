@@ -6,33 +6,6 @@ import type { PaletteChord } from "./musicTheory";
 let audioContext: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let limiter: DynamicsCompressorNode | null = null;
-// iOS 画面収録ブー音対策: GC されないようモジュールレベルで保持
-let micStream: MediaStream | null = null;
-let micSourceNode: MediaStreamAudioSourceNode | null = null;
-
-/**
- * iOS 画面収録のブー音対策:
- * getUserMedia(audio) で AVAudioSession を .playAndRecord カテゴリに切り替える。
- * ストリームを MediaStreamSourceNode として保持し続けることでセッションを維持する
- * （destination に繋がないのでマイク音声は出力されない）。
- * コードタップのたびに呼び、画面収録開始後にアプリを開いた場合も再確立できる。
- */
-function activateMicSession(): void {
-  // 既にアクティブなストリームがあればスキップ
-  const isActive = micStream &&
-    micStream.getAudioTracks().some((t) => t.readyState === "live");
-  if (isActive) return;
-
-  navigator.mediaDevices?.getUserMedia({ audio: true })
-    .then((stream) => {
-      // 古いストリームがあれば停止
-      micStream?.getTracks().forEach((t) => t.stop());
-      micStream = stream;
-      micSourceNode = getAudioContext().createMediaStreamSource(stream);
-      // destination に接続しない → マイク音は出力されない（エコーなし）
-    })
-    .catch(() => {}); // 権限拒否・非対応環境は無視
-}
 
 function getAudioContext(): AudioContext {
   if (!audioContext) {
@@ -60,8 +33,6 @@ function getAudioContext(): AudioContext {
     masterGain.connect(limiter);
     limiter.connect(audioContext.destination);
 
-    // 初回作成時も mic セッションを確立しておく
-    activateMicSession();
   }
   return audioContext;
 }
@@ -90,10 +61,6 @@ function midiToFreq(midi: number): number {
  * ★ Fix 5: 各音のゲインを音数に応じてスケーリング
  */
 export async function playChord(chord: PaletteChord, durationSec: number = 0.8, time?: number): Promise<void> {
-  // ユーザージェスチャーのタイミングで mic セッションを確認・再確立
-  // 画面収録オン後にアプリを開いた場合もここで .playAndRecord セッションが取れる
-  activateMicSession();
-
   const ctx = getAudioContext();
 
   if (ctx.state === "suspended") {
@@ -423,11 +390,6 @@ export function stopPaletteSequence(): void {
 // 音声エンジンが壊れた場合に完全に再初期化する
 export function resetAudioEngine(): void {
   stopPaletteSequence();
-  if (micStream) {
-    micStream.getTracks().forEach((t) => t.stop());
-    micStream = null;
-    micSourceNode = null;
-  }
   if (audioContext) {
     audioContext.close().catch(() => {});
     audioContext = null;
