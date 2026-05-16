@@ -47,8 +47,9 @@ export default async function handler(req: any, res: any) {
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      return res.status(500).json({ error: `Anthropic API error: ${text}` });
+      const errData = await response.json().catch(() => null);
+      const message = errData?.error?.message ?? "Anthropic API エラー";
+      return res.status(500).json({ error: message });
     }
 
     const data = await response.json();
