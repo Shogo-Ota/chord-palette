@@ -16,33 +16,24 @@ function getAudioContext(): AudioContext {
     // 強制指定するとリサンプリングが発生しノイズの原因になる。
     audioContext = new AudioCtx();
     
-    // ★ Fix 2: ハードリミッター（音割れ・クリッピング防止）
-    // threshold を -3dB にし、ratio を無限大（∞:1）に近い 20:1 に設定。
-    // これにより入力がどれだけ大きくても出力が確実にクリップしない。
+    // リミッター: 過度な圧縮はポンピング（ブー音）の原因になる。
+    // ratio 4:1・attack 10ms・ソフトニー 6dB で自然に音量を抑える。
     limiter = audioContext.createDynamicsCompressor();
-    limiter.threshold.setValueAtTime(-3, audioContext.currentTime);
-    limiter.knee.setValueAtTime(0, audioContext.currentTime);   // ハードニー（即座に効かせる）
-    limiter.ratio.setValueAtTime(20, audioContext.currentTime); // 20:1 ≈ ハードリミッター
-    limiter.attack.setValueAtTime(0.001, audioContext.currentTime); // 1ms 以内に応答
-    limiter.release.setValueAtTime(0.1, audioContext.currentTime);
-    
-    // ★ Fix 3: マスターゲインを大幅に下げる
-    // 4音和音 × オシレーター × ゲインを安全レベルに収める
+    limiter.threshold.setValueAtTime(-12, audioContext.currentTime); // -12dB から緩やかに圧縮
+    limiter.knee.setValueAtTime(6, audioContext.currentTime);        // ソフトニー（滑らかな圧縮）
+    limiter.ratio.setValueAtTime(4, audioContext.currentTime);       // 4:1（自然なリミッティング）
+    limiter.attack.setValueAtTime(0.010, audioContext.currentTime);  // 10ms（急激な音量変化を防ぐ）
+    limiter.release.setValueAtTime(0.25, audioContext.currentTime);  // 250ms（ゆっくり戻す）
+
+    // マスターゲイン: 音数が多くても歪まないよう低めに設定
     masterGain = audioContext.createGain();
-    masterGain.gain.setValueAtTime(0.4, audioContext.currentTime);
+    masterGain.gain.setValueAtTime(0.25, audioContext.currentTime);
     
     // 接続: 各音源 → masterGain → limiter → destination
     masterGain.connect(limiter);
     limiter.connect(audioContext.destination);
-
-    // 画面録画などによる AudioContext 中断を検知して自動復帰
-    // resume() 中の重複呼び出しを防ぐためフラグで管理
-    audioContext.onstatechange = () => {
-      const ac = audioContext;
-      if (ac && ac.state === "suspended") {
-        ac.resume().catch(() => {});
-      }
-    };
+    // onstatechange による自動 resume は iOS audio session と干渉しポンピング音の原因になるため削除。
+    // 復帰処理は playChord の await resume() と scheduler ガードで行う。
   }
   return audioContext;
 }
