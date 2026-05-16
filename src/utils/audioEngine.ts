@@ -32,8 +32,15 @@ function getAudioContext(): AudioContext {
     // 接続: 各音源 → masterGain → limiter → destination
     masterGain.connect(limiter);
     limiter.connect(audioContext.destination);
-    // onstatechange による自動 resume は iOS audio session と干渉しポンピング音の原因になるため削除。
-    // 復帰処理は playChord の await resume() と scheduler ガードで行う。
+
+    // iOS 画面収録のブー音対策:
+    // getUserMedia(audio) を呼ぶことで AVAudioSession を .playAndRecord カテゴリに切り替える。
+    // マイクON収録と同じ高品位な音声パスになり、ノイズが解消される。
+    // ストリームは即停止するため実際の録音は行わない。
+    // ユーザージェスチャー（コードタップ）中に呼ばれるため iOS の制約を満たす。
+    navigator.mediaDevices?.getUserMedia({ audio: true })
+      .then((stream) => stream.getTracks().forEach((t) => t.stop()))
+      .catch(() => {}); // 権限拒否・非対応環境は無視
   }
   return audioContext;
 }
