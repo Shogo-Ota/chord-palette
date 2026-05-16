@@ -36,9 +36,11 @@ function getAudioContext(): AudioContext {
     limiter.connect(audioContext.destination);
 
     // 画面録画などによる AudioContext 中断を検知して自動復帰
+    // resume() 中の重複呼び出しを防ぐためフラグで管理
     audioContext.onstatechange = () => {
-      if (audioContext && audioContext.state === "suspended") {
-        audioContext.resume().catch(() => {});
+      const ac = audioContext;
+      if (ac && ac.state === "suspended") {
+        ac.resume().catch(() => {});
       }
     };
   }
@@ -75,7 +77,12 @@ export async function playChord(chord: PaletteChord, durationSec: number = 0.8, 
     await ctx.resume();
   }
 
-  const now = time !== undefined ? time : ctx.currentTime;
+  // resume 後に ctx.currentTime が進んでいる場合、過去の time をそのまま使うと
+  // ADSR エンベロープが過去タイムスタンプになりゲインが突然跳ね上がる（ブー音の原因）
+  // → 常に現在時刻以降にクランプする
+  const now = time !== undefined
+    ? Math.max(time, ctx.currentTime + 0.005)
+    : ctx.currentTime;
   
   // ボイシングの最適化（高音域に寄りすぎないよう上限を設定）
   const notes = chord.intervals.map((interval, index) => {
@@ -309,6 +316,12 @@ function scheduler() {
     ctx.resume().catch(() => {});
     if (isPlaying) sequenceTimerId = window.setTimeout(scheduler, 100);
     return;
+  }
+
+  // 停止中に ctx.currentTime が進んだ場合 nextNoteTime をリセット
+  // これがないと while ループで過去ノートが一斉発音されブー音になる
+  if (nextNoteTime < ctx.currentTime) {
+    nextNoteTime = ctx.currentTime + 0.05;
   }
 
   while (nextNoteTime < ctx.currentTime + 0.2) {
