@@ -71,7 +71,7 @@ function handleContextStateChange() {
   if (!audioContext) return;
   const state = audioContext.state;
   if (state === "suspended" || state === "interrupted") {
-    if (isPlaying) {
+    if (isPlaying && !isExportingVideo) {
       stopPaletteSequenceInternal(false);
       onAudioInterrupted?.();
     }
@@ -104,6 +104,7 @@ export function setAudioInterruptedCallback(cb: (() => void) | null) {
 
 export function installAudioLifecycleHandlers(): () => void {
   const onVisibility = () => {
+    if (isExportingVideo) return;
     if (document.visibilityState === "hidden" && isPlaying) {
       stopPaletteSequenceInternal(false);
     }
@@ -113,6 +114,7 @@ export function installAudioLifecycleHandlers(): () => void {
   };
 
   const onPageHide = () => {
+    if (isExportingVideo) return;
     stopPaletteSequenceInternal(false);
     resetAudioEngine();
   };
@@ -313,6 +315,43 @@ let sequencePattern: "none" | "4beat" | "8beat" | "16beat" = "none";
 let sequenceOnStop: (() => void) | null = null;
 let sequenceOnTick: ((index: number) => void) | null = null;
 let sequenceIsLooping = false;
+let isExportingVideo = false;
+let captureDestination: MediaStreamAudioDestinationNode | null = null;
+
+/** 動画書き出し中フラグを切り替える（lifecycle 抑止用） */
+export function setExportingVideo(flag: boolean): void {
+  isExportingVideo = flag;
+}
+
+export function isExportingVideoActive(): boolean {
+  return isExportingVideo;
+}
+
+/**
+ * オーディオ出力（limiter）から MediaStreamAudioDestinationNode を生やし、
+ * その MediaStream を返す。動画書き出し時に Canvas captureStream のオーディオトラックとして使う。
+ */
+export function attachCaptureDestination(): MediaStream {
+  const ctx = getAudioContext();
+  if (captureDestination) {
+    // 既に存在するなら再利用（多重 connect 防止）
+    return captureDestination.stream;
+  }
+  captureDestination = ctx.createMediaStreamDestination();
+  if (limiter) {
+    try {
+      limiter.connect(captureDestination);
+    } catch {
+      /* ignore */
+    }
+  }
+  return captureDestination.stream;
+}
+
+/** MediaStreamAudioDestinationNode を切り離して破棄する。 */
+export function detachCaptureDestination(): void {
+  cleanupCapture();
+}
 
 function scheduleNote(beatNumber: number, time: number) {
   const ctx = getAudioContext();
@@ -468,7 +507,20 @@ export function stopPaletteSequence(): void {
   stopPaletteSequenceInternal(false);
 }
 
+function cleanupCapture() {
+  if (limiter && captureDestination) {
+    try {
+      limiter.disconnect(captureDestination);
+    } catch {
+      /* ignore */
+    }
+  }
+  captureDestination = null;
+}
+
 export function resetAudioEngine(): void {
+  isExportingVideo = false;
+  cleanupCapture();
   stopPaletteSequenceInternal(false);
   stopAllActiveNodes();
   if (audioContext) {

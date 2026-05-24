@@ -24,8 +24,48 @@ import {
   getAudioContextState,
 } from "./utils/audioEngine";
 import { loadPersistedState, savePersistedState } from "./utils/storage";
+import { exportProgressionVideo, isVideoExportSupported } from "./utils/videoExporter";
+import { shareVideoFile, buildShareText } from "./utils/shareVideo";
+import { copyTextToClipboard } from "./utils/clipboard";
 
 const ChordDurationOptions = ["1", "1/2", "1/4"] as const;
+
+function classifyToast(message: string): string {
+  if (message.includes("作成中") || message.includes("…")) {
+    return "toast-progress";
+  }
+  if (
+    message.includes("失敗") ||
+    message.includes("エラー") ||
+    message.includes("再開") ||
+    message.includes("対応していません") ||
+    // Sprint 7: MediaRecorder 非対応時の半失敗（動画は作れないがテキストはコピー成功した状態）も error 系で見せる
+    message.includes("作れませんでした")
+  ) {
+    return "toast-error";
+  }
+  if (
+    message.includes("保存しました") ||
+    message.includes("開きました")
+  ) {
+    return "toast-success";
+  }
+  return "toast-info";
+}
+
+function toastIcon(message: string): string {
+  const kind = classifyToast(message);
+  switch (kind) {
+    case "toast-progress":
+      return "●";
+    case "toast-error":
+      return "!";
+    case "toast-success":
+      return "✓";
+    default:
+      return "i";
+  }
+}
 
 let cachedInitialState: ReturnType<typeof loadPersistedState> | undefined;
 
@@ -59,6 +99,7 @@ function App() {
     () => getInitialState()?.chordDurationMode ?? "1"
   );
   const [audioToast, setAudioToast] = useState<string | null>(null);
+  const [isExportingVideo, setIsExportingVideo] = useState(false);
 
   const { showOnboarding, dismissOnboarding } = useOnboarding();
 
@@ -215,16 +256,78 @@ function App() {
     setEditingIndex(null);
   };
 
-  const handleCopyProgression = useCallback(async () => {
-    const text = palette.map((c) => c.displayName).join(" - ");
-    try {
-      await navigator.clipboard.writeText(text);
-      setAudioToast("進行をコピーしました");
-      window.setTimeout(() => setAudioToast(null), 2000);
-    } catch {
-      setAudioToast("コピーに失敗しました");
+  const handleExportVideo = useCallback(async () => {
+    if (palette.length === 0 || isExportingVideo) return;
+
+    // 動画書き出し非対応環境 → テキストコピーのみで fallback
+    if (!isVideoExportSupported()) {
+      const text = buildShareText(palette, selectedKey, bpm);
+      const ok = await copyTextToClipboard(text);
+      setAudioToast(
+        ok
+          ? "動画は作れませんでした。テキストだけコピーしました"
+          : "コピーに失敗しました"
+      );
+      window.setTimeout(() => setAudioToast(null), 3500);
+      return;
     }
-  }, [palette]);
+
+    setIsExportingVideo(true);
+    setAudioToast("動画を作成中…\n画面はそのままにしてください");
+
+    try {
+      const result = await exportProgressionVideo({
+        palette,
+        selectedKey,
+        bpm,
+        drumPattern,
+        onTick: (idx) => setCurrentPlayingIndex(idx),
+      });
+
+      setCurrentPlayingIndex(null);
+
+      const text = buildShareText(palette, selectedKey, bpm);
+
+      try {
+        const mode = await shareVideoFile(result.file, text);
+        switch (mode) {
+          case "shared":
+            setAudioToast("共有シートを開きました");
+            break;
+          case "shared-text-only":
+            setAudioToast("動画を保存しました（共有シートでテキストを送信）");
+            break;
+          case "downloaded-copied":
+            setAudioToast("動画を保存しました（テキストをコピーしました）");
+            break;
+          case "downloaded-only":
+            // 動画 DL はできたがクリップボードコピーに失敗 → ユーザーに伝える
+            setAudioToast("動画を保存しました（テキストのコピーに失敗）");
+            break;
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          setAudioToast(null);
+        } else {
+          // shareVideoFile 自体の例外（AbortError 以外）
+          const msg = err instanceof Error ? err.message : "共有に失敗しました";
+          setAudioToast(`共有に失敗しました: ${msg}`);
+        }
+      }
+      window.setTimeout(() => setAudioToast(null), 3000);
+    } catch (err) {
+      setCurrentPlayingIndex(null);
+      if (err instanceof Error && err.name === "AbortError") {
+        setAudioToast(null);
+      } else {
+        const msg = err instanceof Error ? err.message : "動画の作成に失敗しました";
+        setAudioToast(msg.includes("動画") ? msg : `動画の作成に失敗しました: ${msg}`);
+        window.setTimeout(() => setAudioToast(null), 3500);
+      }
+    } finally {
+      setIsExportingVideo(false);
+    }
+  }, [palette, selectedKey, bpm, drumPattern, isExportingVideo]);
 
   const progressionString = palette.map((c) => c.displayName).join(" - ");
 
@@ -251,8 +354,9 @@ function App() {
       )}
 
       {audioToast && (
-        <div className="audio-toast" role="status">
-          {audioToast}
+        <div className={`audio-toast ${classifyToast(audioToast)}`} role="status">
+          <span className="audio-toast-icon" aria-hidden="true">{toastIcon(audioToast)}</span>
+          <span className="audio-toast-text">{audioToast}</span>
           <button type="button" className="audio-toast-close" onClick={() => setAudioToast(null)} aria-label="閉じる">
             ✕
           </button>
@@ -284,7 +388,8 @@ function App() {
             const nextIdx = (currentIdx + 1) % ChordDurationOptions.length;
             setChordDurationMode(ChordDurationOptions[nextIdx]);
           }}
-          onCopyProgression={handleCopyProgression}
+          onExportVideo={handleExportVideo}
+          isExportingVideo={isExportingVideo}
           emptyHint="下のコードから選んで追加 ↓"
         />
         {palette.length > 0 && hasExplainApi && (

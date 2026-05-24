@@ -21,7 +21,8 @@ interface CompositionPaletteProps {
   currentPlayingIndex: number | null;
   chordDurationMode: "1" | "1/2" | "1/4";
   onToggleDurationMode: () => void;
-  onCopyProgression?: () => void;
+  onExportVideo?: () => void;
+  isExportingVideo?: boolean;
   emptyHint?: string;
 }
 
@@ -51,7 +52,8 @@ export default function CompositionPalette({
   currentPlayingIndex,
   chordDurationMode,
   onToggleDurationMode,
-  onCopyProgression,
+  onExportVideo,
+  isExportingVideo = false,
   emptyHint = "下のコードから選んで追加",
 }: CompositionPaletteProps) {
   const [localBpm, setLocalBpm] = useState<string>(bpm.toString());
@@ -129,14 +131,24 @@ export default function CompositionPalette({
           </div>
         </div>
         <div className="playback-bar-row playback-bar-transport">
-          {onCopyProgression && palette.length > 0 && (
-            <button className="btn-playback btn-copy" onClick={onCopyProgression} title="進行をコピー" aria-label="進行をコピー">
-              📋
+          {onExportVideo && palette.length > 0 && (
+            <button
+              className={`btn-playback btn-share ${isExportingVideo ? "recording" : ""}`}
+              onClick={() => {
+                if (isPlaying) onStop();
+                onExportVideo?.();
+              }}
+              disabled={isExportingVideo}
+              title="縦型動画を作成して共有"
+              aria-label="動画として共有"
+            >
+              {isExportingVideo ? "⏺" : "🎬"}
             </button>
           )}
           <button
             className={`btn-playback btn-loop ${isLooping ? "active" : ""}`}
             onClick={onToggleLoop}
+            disabled={isExportingVideo}
             title="ループ再生"
             aria-label="ループ再生"
           >
@@ -146,13 +158,19 @@ export default function CompositionPalette({
             <button
               className="btn-playback btn-play"
               onClick={onPlayAll}
-              disabled={palette.length === 0}
+              disabled={palette.length === 0 || isExportingVideo}
               aria-label="再生"
+              title={isExportingVideo ? "動画作成中は再生できません" : "再生"}
             >
               ▶
             </button>
           ) : (
-            <button className="btn-playback btn-stop" onClick={onStop} aria-label="停止">
+            <button
+              className="btn-playback btn-stop"
+              onClick={onStop}
+              disabled={isExportingVideo}
+              aria-label="停止"
+            >
               ■
             </button>
           )}
@@ -191,21 +209,26 @@ export default function CompositionPalette({
                         <div key={idx} className="palette-item-wrapper">
                           {cIdx > 0 && <span className="palette-arrow">→</span>}
                           <div
-                            className={`palette-pill ${isHalf ? "half-beat" : ""} ${isQuarter ? "quarter-beat" : ""} ${FUNCTION_CLASSES[chord.function] || ""} ${!chord.isDiatonic ? "pill-nondiatonic" : ""} ${isEditing ? "editing" : ""} ${isActive ? "playing" : ""}`}
-                            onClick={() => onEditingIndexChange(idx)}
+                            className={`palette-pill ${isHalf ? "half-beat" : ""} ${isQuarter ? "quarter-beat" : ""} ${FUNCTION_CLASSES[chord.function] || ""} ${!chord.isDiatonic ? "pill-nondiatonic" : ""} ${isEditing ? "editing" : ""} ${isActive ? "playing" : ""} ${isExportingVideo ? "locked" : ""}`}
+                            onClick={() => {
+                              if (isExportingVideo) return;
+                              onEditingIndexChange(idx);
+                            }}
                           >
                             <span className="pill-degree">{chord.label}</span>
                             <span className="pill-name">{chord.displayName}</span>
-                            <span
-                              className="pill-remove"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onRemove(idx);
-                              }}
-                              title="削除"
-                            >
-                              ✕
-                            </span>
+                            {!isExportingVideo && (
+                              <span
+                                className="pill-remove"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRemove(idx);
+                                }}
+                                title="削除"
+                              >
+                                ✕
+                              </span>
+                            )}
                           </div>
                         </div>
                       );
