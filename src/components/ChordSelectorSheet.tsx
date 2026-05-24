@@ -3,17 +3,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import TheoryPane from "./TheoryPane";
 import NonDiatonicPane from "./NonDiatonicPane";
 import OnChordPane from "./OnChordPane";
-import type { DiatonicChord, NonDiatonicChord, PaletteChord, Key } from "../utils/musicTheory";
+import type { DiatonicChord, NonDiatonicChord, PaletteChord, Key, DiatonicChordType } from "../utils/musicTheory";
 
 interface ChordSelectorSheetProps {
   activeTab: "diatonic" | "non-diatonic" | "on-chord";
   onTabChange: (tab: "diatonic" | "non-diatonic" | "on-chord") => void;
   diatonicChords: DiatonicChord[];
   nonDiatonicChords: NonDiatonicChord[];
-
   recommendedIndices: number[];
   lastChord: PaletteChord | null;
-  onDiatonicClick: (chord: DiatonicChord, type: "triad" | "7th" | "6" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13", key: Key) => void;
+  onDiatonicClick: (chord: DiatonicChord, type: DiatonicChordType, key: Key) => void;
   onNonDiatonicClick: (chord: PaletteChord) => void;
   onBassSelect: (bassNote: number, noteName: string) => void;
   selectedKey: Key;
@@ -50,26 +49,26 @@ export default function ChordSelectorSheet({
 
       {/* コンパクトヘッダー（折り畳み時に表示） */}
       <div className="selector-header-compact" onClick={() => setIsExpanded(!isExpanded)}>
-        <h2 className="section-title mini">CHORDS</h2>
+        <h2 className="section-title mini">コード</h2>
 
         <div className="selector-tab-pills">
           <button
             className={`selector-tab-pill ${activeTab === "diatonic" ? "active" : ""}`}
             onClick={(e) => { e.stopPropagation(); onTabChange("diatonic"); if (!isExpanded) setIsExpanded(true); }}
           >
-            Diatonic
+            ダイアトニック
           </button>
           <button
             className={`selector-tab-pill ${activeTab === "non-diatonic" ? "active" : ""}`}
             onClick={(e) => { e.stopPropagation(); onTabChange("non-diatonic"); if (!isExpanded) setIsExpanded(true); }}
           >
-            Non-Dia
+            応用
           </button>
           <button
             className={`selector-tab-pill ${activeTab === "on-chord" ? "active" : ""}`}
             onClick={(e) => { e.stopPropagation(); onTabChange("on-chord"); if (!isExpanded) setIsExpanded(true); }}
           >
-            On-Chord
+            オンコード
           </button>
         </div>
         <button className={`btn-toggle ${isExpanded ? "active" : ""}`} onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}>

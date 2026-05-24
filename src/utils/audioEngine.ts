@@ -1,80 +1,144 @@
 // === Web Audio API コードプレビューエンジン ===
-// v2.2.1: iOS/Android ノイズ・歪み修正版
+// v2.3.0: 画面録画・iOS suspend 対応強化版
 
 import type { PaletteChord } from "./musicTheory";
 
 let audioContext: AudioContext | null = null;
 let masterGain: GainNode | null = null;
+let drumGain: GainNode | null = null;
 let limiter: DynamicsCompressorNode | null = null;
+
+type StoppableNode = { stop: (when?: number) => void };
+const activeNodes: StoppableNode[] = [];
+
+let resumeRetryCount = 0;
+const MAX_RESUME_RETRIES = 3;
+
+let onAudioInterrupted: (() => void) | null = null;
+
+function clampScheduleTime(ctx: AudioContext, time?: number): number {
+  if (time !== undefined) {
+    return Math.max(time, ctx.currentTime + 0.005);
+  }
+  return ctx.currentTime;
+}
+
+function trackNode(node: StoppableNode) {
+  activeNodes.push(node);
+}
+
+function stopAllActiveNodes() {
+  const now = audioContext?.currentTime ?? 0;
+  activeNodes.forEach((node) => {
+    try {
+      node.stop(now + 0.01);
+    } catch {
+      /* already stopped */
+    }
+  });
+  activeNodes.length = 0;
+}
 
 function getAudioContext(): AudioContext {
   if (!audioContext) {
-    const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
-    
-    // ★ Fix 1: sampleRate を強制指定しない
-    // iOS/Android はデバイス固有のサンプリングレートを使用する。
-    // 強制指定するとリサンプリングが発生しノイズの原因になる。
-    audioContext = new AudioCtx();
-    
-    // リミッター: 過度な圧縮はポンピング（ブー音）の原因になる。
-    // ratio 4:1・attack 10ms・ソフトニー 6dB で自然に音量を抑える。
-    limiter = audioContext.createDynamicsCompressor();
-    limiter.threshold.setValueAtTime(-12, audioContext.currentTime); // -12dB から緩やかに圧縮
-    limiter.knee.setValueAtTime(6, audioContext.currentTime);        // ソフトニー（滑らかな圧縮）
-    limiter.ratio.setValueAtTime(4, audioContext.currentTime);       // 4:1（自然なリミッティング）
-    limiter.attack.setValueAtTime(0.010, audioContext.currentTime);  // 10ms（急激な音量変化を防ぐ）
-    limiter.release.setValueAtTime(0.25, audioContext.currentTime);  // 250ms（ゆっくり戻す）
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
 
-    // マスターゲイン: 音数が多くても歪まないよう低めに設定
+    audioContext = new AudioCtx();
+
+    limiter = audioContext.createDynamicsCompressor();
+    limiter.threshold.setValueAtTime(-6, audioContext.currentTime);
+    limiter.knee.setValueAtTime(6, audioContext.currentTime);
+    limiter.ratio.setValueAtTime(2, audioContext.currentTime);
+    limiter.attack.setValueAtTime(0.010, audioContext.currentTime);
+    limiter.release.setValueAtTime(0.25, audioContext.currentTime);
+
     masterGain = audioContext.createGain();
     masterGain.gain.setValueAtTime(0.25, audioContext.currentTime);
-    
-    // 接続: 各音源 → masterGain → limiter → destination
+
+    drumGain = audioContext.createGain();
+    drumGain.gain.setValueAtTime(0.6, audioContext.currentTime);
+
     masterGain.connect(limiter);
+    drumGain.connect(limiter);
     limiter.connect(audioContext.destination);
 
+    audioContext.addEventListener("statechange", handleContextStateChange);
   }
   return audioContext;
 }
 
-/**
- * 音源をマスターゲインに接続するためのヘルパー
- */
-function connectToMaster(node: AudioNode) {
-  if (masterGain) {
-    node.connect(masterGain);
+function handleContextStateChange() {
+  if (!audioContext) return;
+  const state = audioContext.state;
+  if (state === "suspended" || state === "interrupted") {
+    if (isPlaying) {
+      stopPaletteSequenceInternal(false);
+      onAudioInterrupted?.();
+    }
+  }
+  if (state === "running") {
+    resumeRetryCount = 0;
+  }
+}
+
+function connectToMaster(node: AudioNode, isDrum = false) {
+  const target = isDrum ? drumGain : masterGain;
+  if (target) {
+    node.connect(target);
   } else {
     node.connect(getAudioContext().destination);
   }
 }
 
-/**
- * MIDIノート番号から周波数を計算（A4=440Hz基準）
- */
 function midiToFreq(midi: number): number {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
-/**
- * PaletteChordを再生する
- * ★ Fix 4: square波をやめて sine + triangle に変更（倍音が少なく合算しても歪まない）
- * ★ Fix 5: 各音のゲインを音数に応じてスケーリング
- */
+export function getAudioContextState(): AudioContextState | "uninitialized" {
+  return audioContext?.state ?? "uninitialized";
+}
+
+export function setAudioInterruptedCallback(cb: (() => void) | null) {
+  onAudioInterrupted = cb;
+}
+
+export function installAudioLifecycleHandlers(): () => void {
+  const onVisibility = () => {
+    if (document.visibilityState === "hidden" && isPlaying) {
+      stopPaletteSequenceInternal(false);
+    }
+    if (document.visibilityState === "visible" && audioContext?.state === "suspended") {
+      audioContext.resume().catch(() => {});
+    }
+  };
+
+  const onPageHide = () => {
+    stopPaletteSequenceInternal(false);
+    resetAudioEngine();
+  };
+
+  document.addEventListener("visibilitychange", onVisibility);
+  window.addEventListener("pagehide", onPageHide);
+
+  return () => {
+    document.removeEventListener("visibilitychange", onVisibility);
+    window.removeEventListener("pagehide", onPageHide);
+  };
+}
+
 export async function playChord(chord: PaletteChord, durationSec: number = 0.8, time?: number): Promise<void> {
   const ctx = getAudioContext();
 
-  if (ctx.state === "suspended") {
-    await ctx.resume();
+  if (ctx.state === "suspended" || ctx.state === "interrupted") {
+    try {
+      await ctx.resume();
+    } catch {
+      return;
+    }
   }
 
-  // resume 後に ctx.currentTime が進んでいる場合、過去の time をそのまま使うと
-  // ADSR エンベロープが過去タイムスタンプになりゲインが突然跳ね上がる（ブー音の原因）
-  // → 常に現在時刻以降にクランプする
-  const now = time !== undefined
-    ? Math.max(time, ctx.currentTime + 0.005)
-    : ctx.currentTime;
-  
-  // ボイシングの最適化（高音域に寄りすぎないよう上限を設定）
+  const now = clampScheduleTime(ctx, time);
+
   const notes = chord.intervals.map((interval, index) => {
     let note = chord.rootNote + interval;
     if (index > 0) {
@@ -89,46 +153,40 @@ export async function playChord(chord: PaletteChord, durationSec: number = 0.8, 
   notes.push(bass - 12);
 
   const duration = durationSec;
-  const attack = 0.015;  // 速すぎるアタックはクリックノイズを生む（15ms）
+  const attack = 0.015;
   const decay = 0.1;
   const sustain = 0.5;
   const release = 0.08;
 
-  // ★ Fix 5: 音数に応じてゲインをスケーリング（同時発音数が増えても音量一定）
   const noteCount = notes.length;
-  const gainScale = 1 / Math.sqrt(noteCount); // RMS正規化
+  const gainScale = 1 / Math.sqrt(noteCount);
 
   notes.forEach((note, i) => {
     const freq = midiToFreq(note);
     const isBass = i === notes.length - 1;
 
-    // ★ Fix 4: メイン波形を sine に変更（倍音がなく歪まない）
     const osc1 = ctx.createOscillator();
     osc1.type = "sine";
     osc1.frequency.setValueAtTime(freq, now);
 
-    // 2倍音（triangle）で少し音に厚みを足す（sine より倍音が少ない）
     const osc2 = ctx.createOscillator();
     osc2.type = "triangle";
     osc2.frequency.setValueAtTime(freq * 2.0, now);
 
-    // 各オシレーターの個別ゲイン（osc2 は抑えめ）
     const osc1Gain = ctx.createGain();
     const osc2Gain = ctx.createGain();
     osc1Gain.gain.setValueAtTime(0.8, now);
-    osc2Gain.gain.setValueAtTime(0.15, now); // 倍音は控えめ
+    osc2Gain.gain.setValueAtTime(0.15, now);
 
     const gainNode = ctx.createGain();
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
-    // フィルターで高域を整理（クリッピング防止にも効果的）
     filter.frequency.setValueAtTime(isBass ? 500 : 3500, now);
     filter.Q.setValueAtTime(0.7, now);
 
-    // ADSR エンベロープ（ゲインスケーリング適用）
     const baseGain = isBass ? 0.18 : 0.12;
     const maxGain = baseGain * gainScale;
-    
+
     gainNode.gain.setValueAtTime(0, now);
     gainNode.gain.linearRampToValueAtTime(maxGain, now + attack);
     gainNode.gain.exponentialRampToValueAtTime(maxGain * sustain, now + attack + decay);
@@ -143,101 +201,109 @@ export async function playChord(chord: PaletteChord, durationSec: number = 0.8, 
     gainNode.connect(filter);
     connectToMaster(filter);
 
+    const stopAt = now + duration + 0.15;
     osc1.start(now);
-    osc1.stop(now + duration + 0.15);
+    osc1.stop(stopAt);
     osc2.start(now);
-    osc2.stop(now + duration + 0.15);
+    osc2.stop(stopAt);
+    trackNode(osc1);
+    trackNode(osc2);
   });
 }
 
-// === ドラムシンセサイザー ===
-
 function playKick(ctx: AudioContext, time: number) {
+  const t = clampScheduleTime(ctx, time);
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
-  
+
   osc.connect(gain);
-  connectToMaster(gain);
-  
-  osc.frequency.setValueAtTime(150, time);
-  osc.frequency.exponentialRampToValueAtTime(40, time + 0.1);
-  osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
-  
-  // ★ Fix: キックのゲインも下げる
-  gain.gain.setValueAtTime(0.35, time);
-  gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
-  
-  osc.start(time);
-  osc.stop(time + 0.5);
+  connectToMaster(gain, true);
+
+  osc.frequency.setValueAtTime(150, t);
+  osc.frequency.exponentialRampToValueAtTime(40, t + 0.1);
+  osc.frequency.exponentialRampToValueAtTime(0.01, t + 0.5);
+
+  gain.gain.setValueAtTime(0.35, t);
+  gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+
+  osc.start(t);
+  osc.stop(t + 0.5);
+  trackNode(osc);
 }
 
 function playSnare(ctx: AudioContext, time: number) {
+  const t = clampScheduleTime(ctx, time);
   const osc = ctx.createOscillator();
   const oscGain = ctx.createGain();
   osc.type = "triangle";
-  osc.frequency.setValueAtTime(180, time);
+  osc.frequency.setValueAtTime(180, t);
   osc.connect(oscGain);
-  connectToMaster(oscGain);
-  oscGain.gain.setValueAtTime(0.15, time);
-  oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
-  osc.start(time);
-  osc.stop(time + 0.1);
+  connectToMaster(oscGain, true);
+  oscGain.gain.setValueAtTime(0.12, t);
+  oscGain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+  osc.start(t);
+  osc.stop(t + 0.1);
+  trackNode(osc);
 
-  const bufferSize = Math.floor(ctx.sampleRate * 0.2);
+  const bufferSize = Math.floor(ctx.sampleRate * 0.15);
   const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
   const data = buffer.getChannelData(0);
   for (let i = 0; i < bufferSize; i++) {
     data[i] = Math.random() * 2 - 1;
   }
-  
+
   const noise = ctx.createBufferSource();
   noise.buffer = buffer;
   const noiseFilter = ctx.createBiquadFilter();
-  noiseFilter.type = "highpass";
-  noiseFilter.frequency.setValueAtTime(1000, time);
-  
+  noiseFilter.type = "bandpass";
+  noiseFilter.frequency.setValueAtTime(2000, t);
+  noiseFilter.Q.setValueAtTime(0.8, t);
+
   const noiseGain = ctx.createGain();
-  noiseGain.gain.setValueAtTime(0.2, time);
-  noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
-  
+  noiseGain.gain.setValueAtTime(0.12, t);
+  noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+
   noise.connect(noiseFilter);
   noiseFilter.connect(noiseGain);
-  connectToMaster(noiseGain);
-  
-  noise.start(time);
-  noise.stop(time + 0.2);
+  connectToMaster(noiseGain, true);
+
+  noise.start(t);
+  noise.stop(t + 0.15);
+  trackNode(noise);
 }
 
 function playHiHat(ctx: AudioContext, time: number) {
+  const t = clampScheduleTime(ctx, time);
   const bufferSize = Math.floor(ctx.sampleRate * 0.05);
   const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
   const data = buffer.getChannelData(0);
   for (let i = 0; i < bufferSize; i++) {
     data[i] = Math.random() * 2 - 1;
   }
-  
+
   const noise = ctx.createBufferSource();
   noise.buffer = buffer;
-  
+
   const filter = ctx.createBiquadFilter();
   filter.type = "highpass";
-  filter.frequency.setValueAtTime(7000, time);
-  
+  filter.frequency.setValueAtTime(7000, t);
+
   const gain = ctx.createGain();
-  gain.gain.setValueAtTime(0.08, time);
-  gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
-  
+  gain.gain.setValueAtTime(0.04, t);
+  gain.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
+
   noise.connect(filter);
   filter.connect(gain);
-  connectToMaster(gain);
-  
-  noise.start(time);
-  noise.stop(time + 0.05);
+  connectToMaster(gain, true);
+
+  noise.start(t);
+  noise.stop(t + 0.05);
+  trackNode(noise);
 }
 
 let sequenceTimerId: number | null = null;
 let nextNoteTime = 0;
-let current16thNote = 0; 
+let current16thNote = 0;
 let currentChordIndex = 0;
 let nextChordTick = 0;
 let isPlaying = false;
@@ -278,15 +344,13 @@ function scheduleNote(beatNumber: number, time: number) {
 
   if (beatNumber === nextChordTick) {
     if (currentChordIndex < sequencePalette.length) {
-      if (sequenceOnTick) {
-        sequenceOnTick(currentChordIndex);
-      }
+      sequenceOnTick?.(currentChordIndex);
       const chord = sequencePalette[currentChordIndex];
       const chordBeats = chord.beats || 2;
       const sustainSec = (60 / sequenceBpm) * chordBeats;
-      
-      playChord(chord, sustainSec, time);
-      
+
+      void playChord(chord, sustainSec, time);
+
       nextChordTick += chordBeats * 4;
       currentChordIndex++;
     }
@@ -302,14 +366,20 @@ function nextNote() {
 function scheduler() {
   const ctx = getAudioContext();
 
-  if (ctx.state === "suspended") {
+  if (ctx.state === "suspended" || ctx.state === "interrupted") {
+    resumeRetryCount++;
+    if (resumeRetryCount > MAX_RESUME_RETRIES) {
+      stopPaletteSequenceInternal(true);
+      onAudioInterrupted?.();
+      return;
+    }
     ctx.resume().catch(() => {});
-    if (isPlaying) sequenceTimerId = window.setTimeout(scheduler, 100);
+    if (isPlaying) {
+      sequenceTimerId = window.setTimeout(scheduler, 200);
+    }
     return;
   }
 
-  // 停止中に ctx.currentTime が進んだ場合 nextNoteTime をリセット
-  // これがないと while ループで過去ノートが一斉発音されブー音になる
   if (nextNoteTime < ctx.currentTime) {
     nextNoteTime = ctx.currentTime + 0.05;
   }
@@ -317,7 +387,7 @@ function scheduler() {
   while (nextNoteTime < ctx.currentTime + 0.2) {
     scheduleNote(current16thNote, nextNoteTime);
     nextNote();
-    
+
     if (currentChordIndex >= sequencePalette.length && current16thNote >= nextChordTick) {
       if (sequenceIsLooping) {
         current16thNote = 0;
@@ -327,20 +397,33 @@ function scheduler() {
         const lastChord = sequencePalette[sequencePalette.length - 1];
         const lastBeats = lastChord ? (lastChord.beats || 2) : 2;
         const sustainSec = (60 / sequenceBpm) * lastBeats;
-        
+
         window.setTimeout(() => {
           if (isPlaying && sequenceOnStop) {
             sequenceOnStop();
           }
-          stopPaletteSequence();
+          stopPaletteSequenceInternal(true);
         }, sustainSec * 1000);
-        return; 
+        return;
       }
     }
   }
 
   if (isPlaying) {
-    sequenceTimerId = window.setTimeout(scheduler, 25);
+    sequenceTimerId = window.setTimeout(scheduler, 50);
+  }
+}
+
+function stopPaletteSequenceInternal(notifyStop: boolean) {
+  isPlaying = false;
+  if (sequenceTimerId !== null) {
+    window.clearTimeout(sequenceTimerId);
+    sequenceTimerId = null;
+  }
+  stopAllActiveNodes();
+  if (notifyStop && sequenceOnStop) {
+    sequenceOnStop();
+    sequenceOnStop = null;
   }
 }
 
@@ -353,10 +436,13 @@ export function playPaletteSequence(
   onTick: (index: number) => void
 ): void {
   const ctx = getAudioContext();
-  if (ctx.state === "suspended") ctx.resume().catch(() => {});
+  if (ctx.state === "suspended" || ctx.state === "interrupted") {
+    ctx.resume().catch(() => {});
+  }
 
-  stopPaletteSequence();
-  
+  stopPaletteSequenceInternal(false);
+  resumeRetryCount = 0;
+
   if (palette.length === 0) {
     onStop();
     return;
@@ -368,7 +454,7 @@ export function playPaletteSequence(
   sequenceOnStop = onStop;
   sequenceOnTick = onTick;
   sequenceIsLooping = isLooping;
-  
+
   current16thNote = 0;
   currentChordIndex = 0;
   nextChordTick = 0;
@@ -379,22 +465,18 @@ export function playPaletteSequence(
 }
 
 export function stopPaletteSequence(): void {
-  isPlaying = false;
-  if (sequenceTimerId !== null) {
-    window.clearTimeout(sequenceTimerId);
-    sequenceTimerId = null;
-  }
+  stopPaletteSequenceInternal(false);
 }
 
-// ★ Fix 6: AudioContext のリセット機能（フォールバック）
-// 音声エンジンが壊れた場合に完全に再初期化する
 export function resetAudioEngine(): void {
-  stopPaletteSequence();
+  stopPaletteSequenceInternal(false);
+  stopAllActiveNodes();
   if (audioContext) {
+    audioContext.removeEventListener("statechange", handleContextStateChange);
     audioContext.close().catch(() => {});
     audioContext = null;
     masterGain = null;
+    drumGain = null;
     limiter = null;
   }
 }
-

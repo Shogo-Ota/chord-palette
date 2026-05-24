@@ -1,0 +1,19 @@
+{
+  "name": "Chord Palette",
+  "short_name": "ChordPalette",
+  "description": "直感的な操作でコード進行を組み立て、リズムに乗せて試聴できる作曲スケッチツール",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a1a",
+  "theme_color": "#22d3ee",
+  "orientation": "portrait-primary",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "/icons.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

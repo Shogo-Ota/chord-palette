@@ -8,15 +8,12 @@ interface CompositionPaletteProps {
   drumPattern: "none" | "4beat" | "8beat" | "16beat";
   onDrumPatternChange: (pattern: "none" | "4beat" | "8beat" | "16beat") => void;
   isPlaying: boolean;
-  onUndo: () => void;
   onRemove: (index: number) => void;
-  onClear: () => void;
   onPlayAll: () => void;
   onStop: () => void;
   isLooping: boolean;
   onToggleLoop: () => void;
   history: PaletteChord[][];
-  onSaveToHistory: () => void;
   onLoadFromHistory: (index: number) => void;
   onRemoveFromHistory: (index: number) => void;
   editingIndex: number | null;
@@ -24,6 +21,8 @@ interface CompositionPaletteProps {
   currentPlayingIndex: number | null;
   chordDurationMode: "1" | "1/2" | "1/4";
   onToggleDurationMode: () => void;
+  onCopyProgression?: () => void;
+  emptyHint?: string;
 }
 
 const FUNCTION_CLASSES: Record<string, string> = {
@@ -39,15 +38,12 @@ export default function CompositionPalette({
   drumPattern,
   onDrumPatternChange,
   isPlaying,
-  onUndo,
   onRemove,
-  onClear,
   onPlayAll,
   onStop,
   isLooping,
   onToggleLoop,
   history,
-  onSaveToHistory,
   onLoadFromHistory,
   onRemoveFromHistory,
   editingIndex,
@@ -55,18 +51,17 @@ export default function CompositionPalette({
   currentPlayingIndex,
   chordDurationMode,
   onToggleDurationMode,
+  onCopyProgression,
+  emptyHint = "下のコードから選んで追加",
 }: CompositionPaletteProps) {
-  // モバイル入力改善のためのローカルステート
   const [localBpm, setLocalBpm] = useState<string>(bpm.toString());
 
-  // 外部からのBPM変更（履歴ロード等）に同期
   useEffect(() => {
     setLocalBpm(bpm.toString());
   }, [bpm]);
 
   const handleBpmChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    // 数字のみ許可（空文字も許可してタイピングしやすくする）
     if (val === "" || /^\d+$/.test(val)) {
       setLocalBpm(val);
     }
@@ -75,14 +70,11 @@ export default function CompositionPalette({
   const handleBpmBlur = () => {
     let num = parseInt(localBpm, 10);
     if (isNaN(num)) num = 100;
-    
-    // ユーザー指定の範囲 10-200 でクランプ
     const clamped = Math.min(200, Math.max(10, num));
     setLocalBpm(clamped.toString());
     onBpmChange(clamped);
   };
 
-  // 再生中のオートスクロール
   useEffect(() => {
     if (currentPlayingIndex !== null) {
       const activePill = document.querySelector(".palette-pill.playing");
@@ -98,95 +90,87 @@ export default function CompositionPalette({
 
   return (
     <div className="workspace-palette">
-      {/* アクションバー */}
-      <div className="palette-action-bar">
-        <div className="palette-actions-left">
-          <button className="btn-header-action" onClick={onUndo} title="戻る">
-            <span className="btn-icon">↩</span>
-            <span className="btn-text">戻る</span>
-          </button>
-          <button className="btn-header-action" onClick={onSaveToHistory} disabled={palette.length === 0} title="保存">
-            <span className="btn-icon">💾</span>
-            <span className="btn-text">保存</span>
-          </button>
-          <button className="btn-header-action btn-clear-text" onClick={onClear} disabled={palette.length === 0} title="クリア">
-            <span className="btn-icon">✕</span>
-            <span className="btn-text">クリア</span>
-          </button>
-        </div>
-
-        {/* 中央: 再生設定 (BPM / Drum / 1/2) */}
-        <div className="palette-actions-center">
-          <button 
+      <div className="playback-bar">
+        <div className="playback-bar-row playback-bar-settings">
+          <button
             className={`btn-half-beat ${chordDurationMode !== "1" ? "active" : ""}`}
             onClick={onToggleDurationMode}
-            title="コードの長さを切り替え (1 -> 1/2 -> 1/4)"
+            title="コードの長さを切り替え (1 → 1/2 → 1/4)"
+            aria-label="コードの長さ"
           >
             {chordDurationMode}
           </button>
-          <div className="playback-item mini">
-            <label className="playback-label mini">BPM</label>
+          <div className="playback-item">
+            <label className="playback-label" htmlFor="bpm-input">BPM</label>
             <input
+              id="bpm-input"
               type="text"
               inputMode="numeric"
+              placeholder="BPM"
               value={localBpm}
               onChange={handleBpmChange}
               onBlur={handleBpmBlur}
-              className="bpm-number-input mini"
+              className="bpm-number-input"
             />
           </div>
-          <div className="playback-item mini group-drum">
-            <label className="playback-label mini">Drum</label>
-            <select 
-              className="drum-select mini"
+          <div className="playback-item">
+            <label className="playback-label" htmlFor="drum-select">Drum</label>
+            <select
+              id="drum-select"
+              className="drum-select"
               value={drumPattern}
-              onChange={(e) => onDrumPatternChange(e.target.value as any)}
+              onChange={(e) => onDrumPatternChange(e.target.value as "none" | "4beat" | "8beat" | "16beat")}
             >
-              <option value="none">None</option>
-              <option value="4beat">4 Beat</option>
-              <option value="8beat">8 Beat</option>
-              <option value="16beat">16 Beat</option>
+              <option value="none">なし</option>
+              <option value="4beat">4</option>
+              <option value="8beat">8</option>
+              <option value="16beat">16</option>
             </select>
           </div>
         </div>
-
-        <div className="palette-actions-right">
-          <button 
-            className={`btn-toggle btn-loop ${isLooping ? "active" : ""}`} 
+        <div className="playback-bar-row playback-bar-transport">
+          {onCopyProgression && palette.length > 0 && (
+            <button className="btn-playback btn-copy" onClick={onCopyProgression} title="進行をコピー" aria-label="進行をコピー">
+              📋
+            </button>
+          )}
+          <button
+            className={`btn-playback btn-loop ${isLooping ? "active" : ""}`}
             onClick={onToggleLoop}
             title="ループ再生"
+            aria-label="ループ再生"
           >
-            <span className="toggle-icon">🔁</span>
+            🔁
           </button>
           {!isPlaying ? (
-            <button 
-              className="btn-action btn-play mini" 
-              onClick={onPlayAll} 
+            <button
+              className="btn-playback btn-play"
+              onClick={onPlayAll}
               disabled={palette.length === 0}
+              aria-label="再生"
             >
-              <span className="btn-icon">▶</span>
+              ▶
             </button>
           ) : (
-            <button className="btn-action btn-stop mini" onClick={onStop}>
-              <span className="btn-icon">■</span>
+            <button className="btn-playback btn-stop" onClick={onStop} aria-label="停止">
+              ■
             </button>
           )}
         </div>
       </div>
 
-      {/* コード進行表示エリア */}
       <div className="palette-canvas">
         {palette.length === 0 ? (
           <div className="palette-empty-canvas">
-            <p className="hint">コードを選択して追加</p>
+            <p className="hint">{emptyHint}</p>
+            <span className="empty-hint-arrow" aria-hidden="true">↓</span>
           </div>
         ) : (
           <div className="palette-chords center">
-            {/* キーごとにグループ化して表示 */}
             {(() => {
               const segments: { key: string; chords: { chord: PaletteChord; originalIndex: number }[] }[] = [];
               palette.forEach((chord, idx) => {
-                const currentKey = chord.key || "C"; // フォールバック
+                const currentKey = chord.key || "C";
                 if (segments.length === 0 || segments[segments.length - 1].key !== currentKey) {
                   segments.push({ key: currentKey, chords: [] });
                 }
@@ -206,14 +190,14 @@ export default function CompositionPalette({
                       return (
                         <div key={idx} className="palette-item-wrapper">
                           {cIdx > 0 && <span className="palette-arrow">→</span>}
-                          <div 
+                          <div
                             className={`palette-pill ${isHalf ? "half-beat" : ""} ${isQuarter ? "quarter-beat" : ""} ${FUNCTION_CLASSES[chord.function] || ""} ${!chord.isDiatonic ? "pill-nondiatonic" : ""} ${isEditing ? "editing" : ""} ${isActive ? "playing" : ""}`}
                             onClick={() => onEditingIndexChange(idx)}
                           >
                             <span className="pill-degree">{chord.label}</span>
                             <span className="pill-name">{chord.displayName}</span>
-                            <span 
-                              className="pill-remove" 
+                            <span
+                              className="pill-remove"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onRemove(idx);
@@ -235,13 +219,11 @@ export default function CompositionPalette({
         )}
       </div>
 
-
-      {/* 履歴セクション */}
       {history.length > 0 && (
         <div className="palette-history">
           <div className="history-header">
             <span className="history-icon">🕒</span>
-            <h3 className="history-title">History</h3>
+            <h3 className="history-title">履歴</h3>
           </div>
           <div className="history-list">
             {history.map((item, idx) => (
@@ -252,11 +234,12 @@ export default function CompositionPalette({
                 >
                   <span className="history-number">#{history.length - idx}</span>
                   <span className="history-summary">
-                    {item.map((c) => c.displayName).join(" → ")}
+                    {item.slice(0, 3).map((c) => c.displayName).join(" → ")}
+                    {item.length > 3 ? " …" : ""}
                   </span>
                 </button>
-                <button 
-                  className="btn-history-remove" 
+                <button
+                  className="btn-history-remove"
                   onClick={(e) => {
                     e.stopPropagation();
                     onRemoveFromHistory(idx);

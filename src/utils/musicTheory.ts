@@ -11,6 +11,32 @@ export type ChordFunction = (typeof FUNCTIONS)[number];
 
 export const DEGREE_LABELS = ["I", "ii", "iii", "IV", "V", "vi", "vii°"];
 
+export type DiatonicChordType =
+  | "triad" | "7th" | "6" | "sus2" | "sus4"
+  | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13";
+
+const ALLOWED_TENSIONS: Record<number, string[]> = {
+  0: ["9", "13"],
+  1: ["9", "11"],
+  2: ["11"],
+  3: ["9", "#11", "13"],
+  4: ["9", "13", "b9", "#9", "#11", "b13"],
+  5: ["9", "11"],
+  6: ["11", "b13"],
+};
+
+export function getAllowedTensions(degreeIndex: number): string[] {
+  return ALLOWED_TENSIONS[degreeIndex] ?? [];
+}
+
+export function isTensionAllowed(degreeIndex: number, tension: string): boolean {
+  return getAllowedTensions(degreeIndex).includes(tension);
+}
+
+export const VARIATION_TYPES = ["6", "sus2", "sus4"] as const;
+export const TENSION_TYPES = ["9", "11", "13"] as const;
+export const ALTER_TYPES = ["b9", "#9", "#11", "b13"] as const;
+
 // === Chord intervals by type ===
 const TRIAD_INTERVALS: Record<string, number[]> = {
   "": [0, 4, 7],         // major
@@ -76,7 +102,7 @@ export function getDiatonicChords(key: Key): DiatonicChord[] {
  */
 export function diatonicToPalette(
   chord: DiatonicChord,
-  type: "triad" | "7th" | "6" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13",
+  type: DiatonicChordType,
   key: Key,
   beats: number = 2
 ): PaletteChord {

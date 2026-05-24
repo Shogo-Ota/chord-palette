@@ -1,9 +1,11 @@
-import type { DiatonicChord, Key } from "../utils/musicTheory";
+import { useState } from "react";
+import type { DiatonicChord, DiatonicChordType, Key } from "../utils/musicTheory";
+import ChordVariationToolbar from "./ChordVariationToolbar";
 
 interface TheoryPaneProps {
   chords: DiatonicChord[];
   recommendedIndices: number[];
-  onChordClick: (chord: DiatonicChord, type: "triad" | "7th" | "6" | "sus2" | "sus4" | "9" | "11" | "13" | "b9" | "#9" | "#11" | "b13", key: Key) => void;
+  onChordClick: (chord: DiatonicChord, type: DiatonicChordType, key: Key) => void;
   selectedKey: Key;
 }
 
@@ -13,23 +15,11 @@ const FUNCTION_CLASSES: Record<string, string> = {
   D: "card-dominant",
 };
 
-// カード内は短縮記名にする
 const FUNCTION_LABELS: Record<string, string> = {
   T: "T",
   SD: "SD",
   D: "D",
 };
-
-const ALLOWED_TENSIONS: Record<number, string[]> = {
-  0: ["9", "13"],
-  1: ["9", "11"],
-  2: ["11"],
-  3: ["9", "#11", "13"],
-  4: ["9", "13", "b9", "#9", "#11", "b13"],
-  5: ["9", "11"],
-  6: ["11", "b13"],
-};
-
 
 export default function TheoryPane({
   chords,
@@ -37,18 +27,46 @@ export default function TheoryPane({
   onChordClick,
   selectedKey,
 }: TheoryPaneProps) {
+  const [selectedDegreeIndex, setSelectedDegreeIndex] = useState<number | null>(null);
+
+  const selectedChord =
+    selectedDegreeIndex !== null
+      ? chords.find((c) => c.degreeIndex === selectedDegreeIndex) ?? null
+      : null;
+
+  const handleDegreeSelect = (chord: DiatonicChord) => {
+    setSelectedDegreeIndex((prev) =>
+      prev === chord.degreeIndex ? null : chord.degreeIndex
+    );
+  };
+
+  const handleVariationClick = (type: DiatonicChordType) => {
+    if (!selectedChord) return;
+    onChordClick(selectedChord, type, selectedKey);
+  };
+
   return (
     <section className="theory-pane">
       <div className="chord-grid">
         {chords.map((chord) => {
           const isRecommended = recommendedIndices.includes(chord.degreeIndex);
+          const isSelected = selectedDegreeIndex === chord.degreeIndex;
           const fnClass = FUNCTION_CLASSES[chord.function] || "";
+
           return (
             <div
               key={chord.degreeIndex}
-              className={`chord-card ${fnClass} ${isRecommended ? "recommended" : "dimmed"}`}
+              className={`chord-card ${fnClass} ${isRecommended ? "recommended" : "dimmed"} ${isSelected ? "selected" : ""}`}
             >
-              <span className="chord-degree">{chord.degree}</span>
+              <button
+                type="button"
+                className="chord-degree-btn"
+                onClick={() => handleDegreeSelect(chord)}
+                title={`${chord.degree} を選択`}
+                aria-pressed={isSelected}
+              >
+                {chord.degree}
+              </button>
               <button
                 className="chord-name-btn"
                 onClick={() => onChordClick(chord, "triad", selectedKey)}
@@ -63,75 +81,20 @@ export default function TheoryPane({
               >
                 {chord.name7th}
               </button>
-              
-              <div className="chord-var-group">
-                <button
-                  className="chord-var-btn"
-                  onClick={() => onChordClick(chord, "6", selectedKey)}
-                  title={`${chord.name}6 / m6 をパレットに追加`}
-                >
-                  6
-                </button>
-                <button
-                  className="chord-var-btn"
-                  onClick={() => onChordClick(chord, "sus2", selectedKey)}
-                  title={`${chord.name.replace(/m($|\(♭5\))/, "")}sus2 をパレットに追加`}
-                >
-                  sus2
-                </button>
-                <button
-                  className="chord-var-btn"
-                  onClick={() => onChordClick(chord, "sus4", selectedKey)}
-                  title={`${chord.name.replace(/m($|\(♭5\))/, "")}sus4 をパレットに追加`}
-                >
-                  sus4
-                </button>
-              </div>
-              
-              {["9", "11", "13"].some(t => ALLOWED_TENSIONS[chord.degreeIndex].includes(t)) && (
-                <div className="chord-tension-group">
-                  {["9", "11", "13"].map(t => (
-                    ALLOWED_TENSIONS[chord.degreeIndex].includes(t) && (
-                      <button
-                        key={t}
-                        className="chord-tension-btn"
-                        onClick={() => onChordClick(chord, t as any, selectedKey)}
-                        title={`${chord.name7th}(${t}) をパレットに追加`}
-                      >
-                        {t}
-                      </button>
-                    )
-                  ))}
-                </div>
-              )}
-
-              {["b9", "#9", "#11", "b13"].some(t => ALLOWED_TENSIONS[chord.degreeIndex].includes(t)) && (
-                <div className="chord-alter-group">
-                  {["b9", "#9", "#11", "b13"].map(t => (
-                    ALLOWED_TENSIONS[chord.degreeIndex].includes(t) && (
-                      <button
-                        key={t}
-                        className="chord-alter-btn"
-                        onClick={() => onChordClick(chord, t as any, selectedKey)}
-                        title={`${chord.name7th}(${t.replace("b", "♭").replace("#", "♯")}) をパレットに追加`}
-                      >
-                        {t.replace("b", "♭").replace("#", "♯")}
-                      </button>
-                    )
-                  ))}
-                </div>
-              )}
 
               <span className={`chord-function fn-${chord.function.toLowerCase()}`}>
                 {FUNCTION_LABELS[chord.function]}
               </span>
-              {isRecommended && (
-                <span className="recommended-dot" />
-              )}
+              {isRecommended && <span className="recommended-dot" />}
             </div>
           );
         })}
       </div>
+
+      <ChordVariationToolbar
+        selectedChord={selectedChord}
+        onVariationClick={handleVariationClick}
+      />
     </section>
   );
 }
