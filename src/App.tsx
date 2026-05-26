@@ -377,6 +377,13 @@ function App() {
     setPalette(history[index]);
   };
 
+  const handleAppendFromHistory = (index: number) => {
+    const source = history[index];
+    if (!source || source.length === 0) return;
+    setPalette((prev) => [...prev, ...source]);
+    setEditingIndex(null);
+  };
+
   const handleRemoveFromHistory = (index: number) => {
     setHistory((prev) => prev.filter((_, i) => i !== index));
   };
@@ -517,6 +524,7 @@ function App() {
           onToggleLoop={() => setIsLooping(!isLooping)}
           history={history}
           onLoadFromHistory={handleLoadFromHistory}
+          onAppendFromHistory={handleAppendFromHistory}
           onRemoveFromHistory={handleRemoveFromHistory}
           editingIndex={editingIndex}
           onEditingIndexChange={(idx) => setEditingIndex((prev) => (prev === idx ? null : idx))}

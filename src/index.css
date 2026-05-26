@@ -973,6 +973,36 @@ body::before {
   transform: scale(1.1);
 }
 
+/* v2.9.x: 履歴の進行を現在のパレット末尾に追加するボタン。
+   削除（赤）と並ぶため、追加意図を示す Tonic 青で差別化する。 */
+.btn-history-append {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tonic-bg);
+  border: 1px solid var(--tonic-border);
+  border-radius: 4px;
+  color: var(--tonic);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.btn-history-append:hover {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: var(--tonic);
+  transform: scale(1.1);
+}
+
+.btn-history-append:active {
+  transform: scale(0.95);
+}
+
 .history-number {
   font-size: 0.7rem;
   font-weight: 800;

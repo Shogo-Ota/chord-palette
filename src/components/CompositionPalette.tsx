@@ -24,6 +24,8 @@ interface CompositionPaletteProps {
   onToggleLoop: () => void;
   history: PaletteChord[][];
   onLoadFromHistory: (index: number) => void;
+  /** v2.9.x: 履歴の進行を現在のパレット末尾に追加（append） */
+  onAppendFromHistory: (index: number) => void;
   onRemoveFromHistory: (index: number) => void;
   editingIndex: number | null;
   onEditingIndexChange: (index: number | null) => void;
@@ -61,6 +63,7 @@ export default function CompositionPalette({
   onToggleLoop,
   history,
   onLoadFromHistory,
+  onAppendFromHistory,
   onRemoveFromHistory,
   editingIndex,
   onEditingIndexChange,
@@ -337,6 +340,7 @@ export default function CompositionPalette({
                 <button
                   className="history-item"
                   onClick={() => onLoadFromHistory(idx)}
+                  title="この進行で置き換え"
                 >
                   <span className="history-number">#{history.length - idx}</span>
                   <span className="history-summary">
@@ -345,12 +349,24 @@ export default function CompositionPalette({
                   </span>
                 </button>
                 <button
+                  className="btn-history-append"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAppendFromHistory(idx);
+                  }}
+                  title="現在の進行の末尾に追加"
+                  aria-label="現在の進行の末尾に追加"
+                >
+                  +
+                </button>
+                <button
                   className="btn-history-remove"
                   onClick={(e) => {
                     e.stopPropagation();
                     onRemoveFromHistory(idx);
                   }}
                   title="履歴から削除"
+                  aria-label="履歴から削除"
                 >
                   ✕
                 </button>
