@@ -3467,3 +3467,93 @@ body::before {
 .checkout-success-btn:hover {
   filter: brightness(1.06);
 }
+
+/* Sprint 16 hotfix: ライセンスキー表示 UI（Receipt メールに含まれないため、
+   この画面で必ず控えてもらう必要がある） */
+.checkout-success-license-box {
+  margin: 20px 0 12px;
+  padding: 16px 18px 14px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.checkout-success-license-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #10b981;
+}
+
+.checkout-success-license-text {
+  display: block;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px dashed rgba(16, 185, 129, 0.45);
+  border-radius: 8px;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: #d1fae5;
+  text-align: center;
+  user-select: all;
+  word-break: break-all;
+}
+
+.checkout-success-copy-btn {
+  margin-top: 2px;
+  min-height: 40px;
+  padding: 0 16px;
+  background: rgba(16, 185, 129, 0.18);
+  color: #d1fae5;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.1s ease;
+}
+
+.checkout-success-copy-btn:hover {
+  background: rgba(16, 185, 129, 0.28);
+}
+
+.checkout-success-copy-btn:active {
+  transform: scale(0.97);
+}
+
+.checkout-success-hint--warn {
+  margin: 10px 0 18px;
+  padding: 10px 12px;
+  background: rgba(251, 191, 36, 0.08);
+  border-left: 3px solid rgba(251, 191, 36, 0.55);
+  border-radius: 6px;
+  color: rgba(254, 243, 199, 0.9);
+  text-align: left;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.checkout-success-btn--primary {
+  background: linear-gradient(135deg, #6366f1, #7c3aed, #8b5cf6);
+  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.4);
+  margin-top: 4px;
+}
+
+.checkout-success-btn--primary:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 480px) {
+  .checkout-success-license-text {
+    font-size: 16px;
+    letter-spacing: 0.18em;
+  }
+}
