@@ -98,8 +98,10 @@ body::before {
   justify-content: flex-start;
   /* Sprint 6 回収: 左右は safe-area を取り込み、下は bottom-sheet（折りたたみ高）+
    * gap + ホームインジケータ（safe-area-inset-bottom）を CSS 変数で動的算出。
-   * これでシートが進行ピル行に被らない。 */
-  padding-top: 4px;
+   * これでシートが進行ピル行に被らない。
+   * Sprint 14 (v2.8.2): SE 2nd (667px) でもパレットが画面内に収まるよう、
+   * デスクトップでも padding-top を 2px まで詰めて上端の遊びを最小化 */
+  padding-top: 2px;
   padding-right: max(16px, env(safe-area-inset-right, 16px));
   padding-bottom: calc(
     var(--bottom-sheet-collapsed) +
@@ -119,24 +121,33 @@ body::before {
   .workspace-center {
     padding-right: max(10px, env(safe-area-inset-right, 10px));
     padding-left: max(10px, env(safe-area-inset-left, 10px));
-    /* 狭幅端末ではシートとの余白をやや広げる */
+    /* Sprint 14 (v2.8.2): 16px → 12px に戻し、縦方向を 4px 節約。
+       bottom-sheet との視覚的呼吸は palette-canvas の下 padding で確保する。 */
     padding-bottom: calc(
       var(--bottom-sheet-collapsed) +
-      16px +
+      12px +
       env(safe-area-inset-bottom, 0px)
     );
   }
+  /* Sprint 14 (v2.8.2): スマホでは workspace-palette の縦 padding をさらに圧縮し、
+     gap も詰めて palette-canvas が画面内に確実に収まるようにする。 */
+  .workspace-palette {
+    padding: 8px 10px;
+    gap: 5px;
+  }
 }
 
-/* Phase 1 (M1): LP 一文 — 初回価値提案 */
+/* Phase 1 (M1): LP 一文 — 初回価値提案
+ * Sprint 14 (v2.8.2): margin-bottom を 8→4px に圧縮し、行間も 1.45→1.4 で詰める。
+ * 価値提案コピーは存在感を保ちつつ、palette-canvas を画面内に押し上げる役割。 */
 .workspace-hero-tagline {
   width: 100%;
   max-width: 600px;
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   padding: 0 4px;
   font-size: 13px;
   font-weight: 500;
-  line-height: 1.45;
+  line-height: 1.4;
   text-align: center;
   color: rgba(200, 210, 240, 0.72);
   letter-spacing: 0.01em;
@@ -145,7 +156,8 @@ body::before {
 @media (max-width: 480px) {
   .workspace-hero-tagline {
     font-size: 12px;
-    margin-bottom: 6px;
+    margin-bottom: 3px;
+    line-height: 1.35;
   }
 }
 
@@ -170,10 +182,13 @@ body::before {
   backdrop-filter: blur(16px);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius);
-  padding: 12px;
+  /* Sprint 14 (v2.8.2): 縦のみ 12→10px に圧縮（左右は触らない）。
+     gap は 4→6px に広げて playback-bar / palette-canvas / history の
+     視覚的区切りを保ちつつ、上下の余白の累積を 4px 減らす。 */
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -216,9 +231,11 @@ body::before {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 10px;
+  /* Sprint 14 (v2.8.2): 行間 10→8px、padding 12/14 → 10/12px に圧縮。
+     2+3+3 構成のリズム感は維持しつつ、合計で縦 8-10px 節約。 */
+  gap: 8px;
   flex-shrink: 0;
-  padding: 12px 14px;
+  padding: 10px 12px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-sm);
@@ -440,11 +457,13 @@ body::before {
   width: 100%;
 }
 
-/* iPhone 13 mini (375px) を含むスマホ：grid 比率を維持して、padding/font を微調整 */
+/* iPhone 13 mini (375px) を含むスマホ：grid 比率を維持して、padding/font を微調整
+ * Sprint 14 (v2.8.2): padding/gap をさらに圧縮して縦を稼ぐ。
+ * セレクタ高さ 32px・トランスポート 44px は維持してタップ性は妥協しない。 */
 @media (max-width: 480px) {
   .playback-bar {
-    padding: 11px 12px;
-    gap: 9px;
+    padding: 9px 11px;
+    gap: 7px;
   }
   .playback-bar-settings-time {
     gap: 10px;
@@ -471,11 +490,12 @@ body::before {
   }
 }
 
-/* 360px 以下：行2 の 3 列を維持しつつ select の内側 padding を最小化 */
+/* 360px 以下：行2 の 3 列を維持しつつ select の内側 padding を最小化
+ * Sprint 14 (v2.8.2): padding/gap をさらに圧縮 */
 @media (max-width: 360px) {
   .playback-bar {
-    padding: 10px 10px;
-    gap: 8px;
+    padding: 8px 9px;
+    gap: 6px;
   }
   .playback-bar-settings-tone {
     gap: 6px;
@@ -492,10 +512,12 @@ body::before {
   }
 }
 
-/* 320px 以下（iPhone SE 第1世代）でも横並びを維持 */
+/* 320px 以下（iPhone SE 第1世代）でも横並びを維持
+ * Sprint 14 (v2.8.2): SE 1st の 568px 縦解像度ではさらに圧縮が必要 */
 @media (max-width: 320px) {
   .playback-bar {
-    padding: 9px 8px;
+    padding: 7px 7px;
+    gap: 5px;
   }
   .playback-item {
     gap: 3px;
@@ -558,17 +580,19 @@ body::before {
   transition: all 0.2s ease;
 }
 
-/* ===== Palette Canvas ===== */
+/* ===== Palette Canvas =====
+ * Sprint 14 (v2.8.2): ユーザー成果物（進行ピル行）を常時画面内に見せるため、
+ * 縦 padding を 16/16 → 12/14 に圧縮し、min-height を 80→68px に圧縮。
+ * これでパレット全体が iPhone SE 2nd (667px) でも収まる。
+ * 左右 padding と下端の +2px の非対称はピル行とシート上端の視覚距離を確保するため。 */
 .palette-canvas {
-  min-height: 80px;
+  min-height: 68px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
   background: rgba(0, 0, 0, 0.15);
   border-radius: var(--radius-sm);
-  /* Sprint 6 回収: 進行ピル行とパレット下端の呼吸を確保し、
-     bottom-sheet と視覚的に被らないようにする。 */
-  padding: 16px 12px 16px;
+  padding: 12px 12px 14px;
   border: 1px solid rgba(255, 255, 255, 0.04);
   flex-shrink: 0;
   overflow-x: auto;
@@ -584,12 +608,30 @@ body::before {
   border-radius: 4px;
 }
 
+/* Sprint 14 (v2.8.2): スマホでは canvas の縦 padding と min-height をさらに圧縮し、
+   進行ピル行を常時画面内に表示する。ピル自身に十分な高さがあるので
+   見た目の存在感は維持される。 */
+@media (max-width: 480px) {
+  .palette-canvas {
+    min-height: 60px;
+    padding: 10px 10px 12px;
+  }
+  .palette-empty-canvas {
+    min-height: 44px;
+  }
+  .palette-chords.center {
+    padding: 2px 0;
+    gap: 12px;
+  }
+}
+
 .palette-empty-canvas {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 60px;
+  /* Sprint 14 (v2.8.2): canvas min-height (68) と整合させて 52px に */
+  min-height: 52px;
 }
 
 .palette-empty-canvas .hint {
@@ -604,7 +646,9 @@ body::before {
   align-items: center;
   justify-content: flex-start;
   gap: 16px;
-  padding: 8px 0;
+  /* Sprint 14 (v2.8.2): 縦 padding 8→4px に圧縮。
+     ピル自体の min-height（≒36px）で十分な視覚的呼吸は確保される。 */
+  padding: 4px 0;
 }
 
 /* ===== Key Segment ===== */
@@ -780,10 +824,12 @@ body::before {
 .pill-dominant { background: var(--dominant-bg);    border-color: var(--dominant-border); }
 .pill-nondiatonic { border-style: dashed; }
 
-/* ===== History ===== */
+/* ===== History =====
+ * Sprint 14 (v2.8.2): margin-top / padding-top / header margin / item padding を圧縮。
+ * 履歴は補助情報なので、行の存在感を保ちつつ垂直に最大 10-12px 節約する。 */
 .palette-history {
-  margin-top: 8px;
-  padding-top: 8px;
+  margin-top: 4px;
+  padding-top: 6px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
   flex-direction: column;
@@ -795,14 +841,14 @@ body::before {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   flex-shrink: 0;
 }
 
-.history-icon { font-size: 1rem; opacity: 0.7; }
+.history-icon { font-size: 0.9rem; opacity: 0.7; }
 
 .history-title {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -813,7 +859,7 @@ body::before {
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .history-item-container {
@@ -828,7 +874,8 @@ body::before {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.4rem 0.75rem;
+  /* 縦 padding 0.4rem → 0.3rem に圧縮 */
+  padding: 0.3rem 0.75rem;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 6px;
@@ -843,6 +890,35 @@ body::before {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.1);
   transform: translateX(4px);
+}
+
+/* Sprint 14 (v2.8.2): スマホで履歴行を圧縮。1 行あたり ~26px に。 */
+@media (max-width: 480px) {
+  .palette-history {
+    margin-top: 2px;
+    padding-top: 4px;
+  }
+  .history-header {
+    margin-bottom: 3px;
+  }
+  .history-title {
+    font-size: 0.72rem;
+  }
+  .history-icon {
+    font-size: 0.85rem;
+  }
+  .history-list {
+    gap: 2px;
+  }
+  .history-item {
+    padding: 0.25rem 0.6rem;
+  }
+  .history-summary {
+    font-size: 0.75rem;
+  }
+  .history-number {
+    font-size: 0.65rem;
+  }
 }
 
 .btn-history-remove {
