@@ -167,15 +167,27 @@ body::before {
   background: rgba(255, 255, 255, 0.05);
 }
 
-/* ===== Playback Bar ===== */
+/* ===== Playback Bar =====
+ * Sprint 13 (designer): 2+3+3 構成
+ *   行1 [時間軸]      : LEN(コード長さ) / BPM           — 2 要素を 1:1 で grid 配置
+ *   行2 [音色軸]      : Drum / Beat / Tone              — 3 つの prulldown を 1:1:1 で grid 配置
+ *   行3 [トランスポート]: 出力 / リピート / 再生         — center-flex
+ *
+ * 設計意図：
+ *   - 行ごとに「時間 → 音色 → 操作」と意味グループを揃え、視線移動を最小化
+ *   - 行2の 3 select は同じ「ラベル+select」UI を等幅 1fr で並べて統一感
+ *   - 行1の LEN ボタンも「ラベル + コントロール」のミニグループ化して
+ *     行2の「ラベル + select」とリズムを揃える
+ *   - ユーザー指摘「窮屈感」解消のため、行間 6→10px、padding 8/10→12/14px、
+ *     セレクタ高さ 28→32px、トランスポート高さ 28→44px に拡大
+ */
 .playback-bar {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
   flex-shrink: 0;
-  padding: 8px 10px;
+  padding: 12px 14px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-sm);
@@ -184,24 +196,48 @@ body::before {
 .playback-bar-row {
   display: flex;
   align-items: center;
-  gap: 6px;
   flex-shrink: 0;
+  gap: 12px;
 }
 
 .playback-bar-settings {
-  flex: 1;
   min-width: 0;
 }
 
-.playback-bar-transport {
-  flex-shrink: 0;
+/* 行1 時間軸：LEN と BPM を 1:1 grid。各セルの中で playback-item が中央寄せ */
+.playback-bar-settings-time {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
+/* 行2 音色軸：Drum / Beat / Tone を 1:1:1 grid */
+.playback-bar-settings-tone {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.playback-bar-transport {
+  justify-content: center;
+  gap: 14px;
+}
+
+/* セレクタ単位：grid セルの中で「ラベル + コントロール」を中央寄せ。
+   コントロール部分はセル幅いっぱい（flex:1）に伸ばし、行内で大きさが揃う */
 .playback-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.playback-item > select,
+.playback-item > input,
+.playback-item > .btn-half-beat {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .playback-label {
@@ -209,85 +245,107 @@ body::before {
   font-weight: 800;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .bpm-number-input,
 .drum-select {
-  padding: 0 6px;
+  padding: 0 8px;
   text-align: center;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
+  border-radius: 7px;
   color: var(--text-primary);
-  font-size: 12px;
-  height: 28px;
+  font-size: 13px;
+  font-weight: 600;
+  height: 32px;
   outline: none;
   font-family: inherit;
-  transition: all 0.2s ease;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .bpm-number-input {
-  width: 52px;
+  width: 100%;
+  max-width: 90px;
+  font-feature-settings: "tnum" 1;
 }
 
 .drum-select {
-  width: 52px;
-  padding-right: 4px;
+  width: 100%;
+  padding-right: 6px;
+}
+
+.bpm-number-input:hover,
+.drum-select:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .bpm-number-input:focus,
 .drum-select:focus {
   background: rgba(255, 255, 255, 0.1);
   border-color: var(--tonic-border);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
+/* LEN(コード長さ) ボタン：行1で BPM と並ぶため、高さを揃える */
 .btn-half-beat {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  color: var(--text-muted);
-  font-size: 11px;
+  border-radius: 7px;
+  color: var(--text-secondary);
+  font-size: 13px;
   font-weight: 800;
-  width: 36px;
-  height: 28px;
+  width: 100%;
+  max-width: 70px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease;
   flex-shrink: 0;
   font-family: inherit;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: 0.02em;
 }
 
 .btn-half-beat:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: var(--text-secondary);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.btn-half-beat:active {
+  transform: scale(0.96);
 }
 
 .btn-half-beat.active {
   background: var(--tonic-bg);
   border-color: var(--tonic-border);
   color: var(--tonic);
-  box-shadow: 0 0 8px var(--tonic-glow);
+  box-shadow: 0 0 10px var(--tonic-glow);
 }
 
 .btn-playback {
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   min-width: 44px;
   min-height: 44px;
-  padding: 8px;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: var(--text-muted);
+  border-radius: 10px;
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 13px;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease;
+  font-size: 15px;
   font-family: inherit;
   box-sizing: border-box;
 }
@@ -295,25 +353,46 @@ body::before {
 .btn-playback:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.btn-playback:active:not(:disabled) {
+  transform: scale(0.95);
 }
 
 .btn-playback.btn-play {
   background: var(--tonic);
   border-color: var(--tonic);
   color: white;
+  box-shadow: 0 4px 14px var(--tonic-glow);
+}
+
+.btn-playback.btn-play:hover:not(:disabled) {
+  background: var(--tonic);
+  border-color: var(--tonic);
+  color: white;
+  box-shadow: 0 6px 18px var(--tonic-glow);
 }
 
 .btn-playback.btn-stop {
   background: var(--dominant);
   border-color: var(--dominant);
   color: white;
+  box-shadow: 0 4px 14px var(--dominant-glow);
+}
+
+.btn-playback.btn-stop:hover:not(:disabled) {
+  background: var(--dominant);
+  border-color: var(--dominant);
+  color: white;
+  box-shadow: 0 6px 18px var(--dominant-glow);
 }
 
 .btn-playback.btn-loop.active {
   background: var(--tonic-bg);
   border-color: var(--tonic);
   color: var(--tonic);
-  box-shadow: 0 0 8px var(--tonic-glow);
+  box-shadow: 0 0 12px var(--tonic-glow);
 }
 
 .btn-playback:disabled {
@@ -322,26 +401,81 @@ body::before {
 }
 
 .tone-select {
-  width: 72px;
-  max-width: 28vw;
+  width: 100%;
 }
 
+/* Sprint 13: Beat セレクタも grid セル内で 100% */
+.beat-select {
+  width: 100%;
+}
+
+/* iPhone 13 mini (375px) を含むスマホ：grid 比率を維持して、padding/font を微調整 */
 @media (max-width: 480px) {
-  .playback-label { display: none; }
-  .bpm-number-input { width: 44px; }
-  .drum-select { width: 44px; }
-  .tone-select { width: 56px; max-width: 22vw; font-size: 11px; }
+  .playback-bar {
+    padding: 11px 12px;
+    gap: 9px;
+  }
+  .playback-bar-settings-time {
+    gap: 10px;
+  }
+  .playback-bar-settings-tone {
+    gap: 8px;
+  }
+  .playback-bar-transport {
+    gap: 12px;
+  }
+  .bpm-number-input,
+  .drum-select,
+  .btn-half-beat {
+    height: 32px;
+    font-size: 12px;
+  }
+  .drum-select {
+    padding: 0 4px;
+  }
+  .btn-playback {
+    width: 44px;
+    height: 44px;
+    font-size: 14px;
+  }
 }
 
-@media (max-width: 320px) {
+/* 360px 以下：行2 の 3 列を維持しつつ select の内側 padding を最小化 */
+@media (max-width: 360px) {
   .playback-bar {
-    flex-direction: column;
-    align-items: stretch;
+    padding: 10px 10px;
+    gap: 8px;
+  }
+  .playback-bar-settings-tone {
     gap: 6px;
   }
-  .playback-bar-settings,
-  .playback-bar-transport {
-    justify-content: center;
+  .playback-item {
+    gap: 4px;
+  }
+  .drum-select {
+    padding: 0 2px;
+    font-size: 11px;
+  }
+  .playback-label {
+    font-size: 8.5px;
+  }
+}
+
+/* 320px 以下（iPhone SE 第1世代）でも横並びを維持 */
+@media (max-width: 320px) {
+  .playback-bar {
+    padding: 9px 8px;
+  }
+  .playback-item {
+    gap: 3px;
+  }
+  .drum-select,
+  .bpm-number-input {
+    font-size: 11px;
+  }
+  .playback-label {
+    font-size: 8px;
+    letter-spacing: 0.04em;
   }
 }
 

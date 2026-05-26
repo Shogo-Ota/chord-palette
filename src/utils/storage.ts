@@ -1,6 +1,6 @@
 import { KEYS, type Key, type PaletteChord } from "./musicTheory";
 import { normalizeInstrumentId, type InstrumentId } from "./instrumentPresets";
-import type { DrumPattern } from "./audioEngine";
+import type { BeatPattern, DrumPattern } from "./audioEngine";
 
 const STORAGE_KEY = "cp_state_v1";
 
@@ -9,6 +9,8 @@ export interface PersistedState {
   palette: PaletteChord[];
   bpm: number;
   drumPattern: DrumPattern;
+  /** v2.8 (Sprint 13): Beat 軸（ハイハット密度） */
+  beatPattern: BeatPattern;
   chordDurationMode: "1" | "1/2" | "1/4";
   isLooping: boolean;
   instrumentId: InstrumentId;
@@ -22,20 +24,49 @@ const DRUM_PATTERNS: ReadonlySet<DrumPattern> = new Set<DrumPattern>([
   "pop",
   "soul",
 ]);
+const BEAT_PATTERNS: ReadonlySet<BeatPattern> = new Set<BeatPattern>([
+  "none",
+  "4beat",
+  "8beat",
+  "16beat",
+]);
 const DURATION_MODES = new Set(["1", "1/2", "1/4"]);
 
+/** 旧 drumPattern が "4beat" 等の Beat 名で保存されていた場合の判定 */
+function isLegacyBeatName(value: string): value is Exclude<BeatPattern, "none"> {
+  return value === "4beat" || value === "8beat" || value === "16beat";
+}
+
 /**
- * v2.7 (Sprint 12): 旧 drumPattern 名と新ジャンル名のマッピング。
- * 不正値・undefined は "none" に正規化される。
+ * v2.8 (Sprint 13): drumPattern と beatPattern を 2 軸として正規化する。
+ *
+ * - 旧データ（Sprint 12 以前）の drumPattern が "4beat" / "8beat" / "16beat" の場合:
+ *     → Drum=none, Beat=旧値（旧ユーザーが「8ビート」を選んでいたなら新 UI でも「Beat=8beat」）
+ *   Sprint 12 の "4beat→rock" マップは Sprint 13 で廃止。
+ * - 旧データの drumPattern が "rock" / "jazz" / ... の場合:
+ *     → Drum=その値, Beat=（新フィールドが存在すればその値、なければ "none"）
+ * - 不正値・undefined: "none"
  */
-function normalizeDrumPattern(value: unknown): DrumPattern {
-  if (typeof value !== "string") return "none";
-  // 旧名から新ジャンルへ
-  if (value === "4beat") return "rock";
-  if (value === "8beat") return "pop";
-  if (value === "16beat") return "funk";
-  if (DRUM_PATTERNS.has(value as DrumPattern)) return value as DrumPattern;
-  return "none";
+function normalizeDrumBeat(rawDrum: unknown, rawBeat: unknown): {
+  drumPattern: DrumPattern;
+  beatPattern: BeatPattern;
+} {
+  // 旧 drumPattern が Beat 名で保存されていた場合は Beat 軸に移管
+  if (typeof rawDrum === "string" && isLegacyBeatName(rawDrum)) {
+    return { drumPattern: "none", beatPattern: rawDrum };
+  }
+
+  const drumPattern: DrumPattern =
+    typeof rawDrum === "string" && DRUM_PATTERNS.has(rawDrum as DrumPattern)
+      ? (rawDrum as DrumPattern)
+      : "none";
+
+  const beatPattern: BeatPattern =
+    typeof rawBeat === "string" && BEAT_PATTERNS.has(rawBeat as BeatPattern)
+      ? (rawBeat as BeatPattern)
+      : "none";
+
+  return { drumPattern, beatPattern };
 }
 
 function isPaletteChord(value: unknown): value is PaletteChord {
@@ -81,8 +112,13 @@ function sanitizePersistedState(raw: unknown): Partial<PersistedState> | null {
     result.bpm = Math.min(200, Math.max(10, Math.round(data.bpm)));
   }
 
-  if (data.drumPattern !== undefined) {
-    result.drumPattern = normalizeDrumPattern(data.drumPattern);
+  if (data.drumPattern !== undefined || data.beatPattern !== undefined) {
+    const { drumPattern, beatPattern } = normalizeDrumBeat(
+      data.drumPattern,
+      data.beatPattern
+    );
+    result.drumPattern = drumPattern;
+    result.beatPattern = beatPattern;
   }
 
   if (typeof data.chordDurationMode === "string" && DURATION_MODES.has(data.chordDurationMode)) {

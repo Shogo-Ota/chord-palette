@@ -16,6 +16,7 @@ import {
   setExportingVideo,
   playPaletteSequence,
   stopPaletteSequence,
+  type BeatPattern,
   type DrumPattern,
 } from "./audioEngine";
 import {
@@ -41,6 +42,8 @@ export interface VideoExportOptions {
   selectedKey: Key;
   bpm: number;
   drumPattern: DrumPattern;
+  /** v2.8 (Sprint 13): Beat 軸（ハイハット密度） */
+  beatPattern: BeatPattern;
   instrumentId?: InstrumentId;
   /** アプリ画面側のハイライト同期用コールバック */
   onTick?: (index: number) => void;
@@ -266,7 +269,7 @@ export async function exportProgressionVideo(
         renderState.currentIndex = idx;
         options.onTick?.(idx);
       },
-      { instrumentId: options.instrumentId }
+      { instrumentId: options.instrumentId, beatPattern: options.beatPattern }
     );
   });
 }

@@ -1,11 +1,24 @@
 // === Web Audio API コードプレビューエンジン ===
 // v2.5.0: 音色プリセット + 統一ボイシング
 // v2.7.0 (Sprint 12): 808 系ドラム + 5 ジャンルパターン
+// v2.8.0 (Sprint 13): Drum（ジャンル：Kick/Snare/特徴音）と Beat（ハイハット密度）を 2 軸に分離
 
 import type { PaletteChord } from "./musicTheory";
 
-/** v2.7: ドラムパターン（5 ジャンル + なし） */
+/** v2.7: ドラムパターン（5 ジャンル + なし） — Kick/Snare/ジャンル特有のパーカッションを担当 */
 export type DrumPattern = "none" | "rock" | "jazz" | "funk" | "pop" | "soul";
+
+/**
+ * v2.8 (Sprint 13): Beat パターン — HiHat Closed の密度を制御する独立軸。
+ *
+ * - `none`   : ハイハットなし
+ * - `4beat`  : step % 4 === 0 （0,4,8,12）
+ * - `8beat`  : step % 2 === 0 （0,2,4,6,8,10,12,14）
+ * - `16beat` : 全 16 ステップ
+ *
+ * Drum 側のスウィング（jazz/soul: 三連、funk: 軽）はこちらにも適用される。
+ */
+export type BeatPattern = "none" | "4beat" | "8beat" | "16beat";
 import {
   type InstrumentId,
   getInstrumentPreset,
@@ -558,6 +571,7 @@ let isPlaying = false;
 let sequencePalette: PaletteChord[] = [];
 let sequenceBpm = 120;
 let sequencePattern: DrumPattern = "none";
+let sequenceBeat: BeatPattern = "none";
 let sequenceOnStop: (() => void) | null = null;
 let sequenceOnTick: ((index: number) => void) | null = null;
 let sequenceIsLooping = false;
@@ -593,83 +607,93 @@ export function detachCaptureDestination(): void {
 }
 
 /**
- * v2.7 (Sprint 12): 5 ジャンル + none のドラムパターン分岐。
+ * v2.8 (Sprint 13): Drum 軸（ジャンル）と Beat 軸（ハイハット密度）の 2 軸を組み合わせて発音する。
  *
  * - beatNumber は 16th 単位（1 小節 = 16 ステップ）
  * - step = beatNumber % 16 で小節内位置を取得
- * - スウィング: 16th 裏ステップを規定量だけ後方にシフト
+ * - スウィング: 16th 裏ステップを規定量だけ後方にシフト（Beat 側のハイハットにも適用）
  *   - 三連符フィール（jazz / soul）: step % 4 === 3 のとき + sixteenthSec * (1/3)
  *   - 軽いスウィング（funk）: step % 2 === 1 のとき + sixteenthSec * (1/6)
- * - ゴーストノートはベロシティ 0.45（通常の 0.4〜0.5 倍）
+ *   - ストレート（rock / pop）: 遅延なし
+ * - ゴーストノートはベロシティ 0.45
  *
- * 同一ステップで HiHat C と HiHat O が衝突する場合は **Open を優先**。
+ * Drum 側は Kick / Snare / ジャンル特有のパーカッション（Funk Open Hat）のみ。
+ * ハイハット Closed は Beat 軸が担当し、密度（4/8/16）を制御する。
+ *
+ * 同一ステップで Funk の Open Hat と Beat の Closed が衝突する場合は **Open を優先**。
  */
+function shouldPlayBeatHihat(step: number, beat: BeatPattern): boolean {
+  switch (beat) {
+    case "none":
+      return false;
+    case "4beat":
+      return step % 4 === 0;
+    case "8beat":
+      return step % 2 === 0;
+    case "16beat":
+      return true;
+  }
+}
+
 function scheduleNote(beatNumber: number, time: number) {
   const ctx = getAudioContext();
 
-  if (sequencePattern !== "none") {
-    const step = ((beatNumber % 16) + 16) % 16;
-    const sixteenthSec = 60 / sequenceBpm / 4;
-    const GHOST = 0.45;
+  const step = ((beatNumber % 16) + 16) % 16;
+  const sixteenthSec = 60 / sequenceBpm / 4;
+  const GHOST = 0.45;
 
-    if (sequencePattern === "rock") {
-      // Kick: 0, 4, 8, 12 (4 分)
-      if (step % 4 === 0) playKick(ctx, time);
-      // Snare: 4, 12 (バックビート)
-      if (step === 4 || step === 12) playSnare(ctx, time);
-      // HiHat Closed: 偶数ステップ (8 分)
-      if (step % 2 === 0) playHiHatClosed(ctx, time);
-    } else if (sequencePattern === "jazz") {
-      // 三連符スウィング遅延（裏 16th = step%4===3）
-      const swingDelay = step % 4 === 3 ? sixteenthSec * (1 / 3) : 0;
-      const t = time + swingDelay;
-      // Kick: 0 のみ
-      if (step === 0) playKick(ctx, time);
-      // Snare ゴースト: 4, 12（ブラシ感）
-      if (step === 4 || step === 12) playSnare(ctx, time, GHOST);
-      // HiHat Closed: 0,3,4,7,8,11,12,15
-      if ([0, 3, 4, 7, 8, 11, 12, 15].includes(step)) {
-        playHiHatClosed(ctx, t);
-      }
-    } else if (sequencePattern === "funk") {
-      // 軽いスウィング（裏 16th = step%2===1）
-      const swingDelay = step % 2 === 1 ? sixteenthSec * (1 / 6) : 0;
-      const t = time + swingDelay;
-      // Kick: 0, 6, 8, 14
-      if (step === 0 || step === 6 || step === 8 || step === 14) {
-        playKick(ctx, time);
-      }
-      // Snare: 4, 12 + ゴースト 10
-      if (step === 4 || step === 12) playSnare(ctx, time);
-      if (step === 10) playSnare(ctx, time, GHOST);
-      // HiHat: 全 16 ステップ Closed、ただし step 2, 10 は Open（Open 優先で Closed を発音しない）
-      const isOpen = step === 2 || step === 10;
-      if (isOpen) {
-        playHiHatOpen(ctx, t);
-      } else {
-        playHiHatClosed(ctx, t);
-      }
-    } else if (sequencePattern === "pop") {
-      // Kick: 0, 8 のみ（step % 8 === 0）
-      if (step % 8 === 0) playKick(ctx, time);
-      // Snare: 4, 12
-      if (step === 4 || step === 12) playSnare(ctx, time);
-      // HiHat Closed: 偶数ステップ（8 分、Rock より控えめ）
-      if (step % 2 === 0) playHiHatClosed(ctx, time, 0.55);
-    } else if (sequencePattern === "soul") {
-      // 三連符スウィング遅延
-      const swingDelay = step % 4 === 3 ? sixteenthSec * (1 / 3) : 0;
-      const t = time + swingDelay;
-      // Kick: 0, 10（ハーフタイム）
-      if (step === 0 || step === 10) playKick(ctx, time);
-      // Snare: 8 (バックビート 1 回) + ゴースト 14
-      if (step === 8) playSnare(ctx, time);
-      if (step === 14) playSnare(ctx, time, GHOST);
-      // HiHat Closed: 0,3,4,7,8,11,12,15
-      if ([0, 3, 4, 7, 8, 11, 12, 15].includes(step)) {
-        playHiHatClosed(ctx, t);
-      }
+  // ジャンルごとのスウィング量（裏 16th のみ後方シフト）。Beat ハイハットにも共通適用。
+  let swingDelay = 0;
+  if (sequencePattern === "jazz" || sequencePattern === "soul") {
+    if (step % 4 === 3) swingDelay = sixteenthSec * (1 / 3);
+  } else if (sequencePattern === "funk") {
+    if (step % 2 === 1) swingDelay = sixteenthSec * (1 / 6);
+  }
+  const swungTime = time + swingDelay;
+
+  // === Drum 軸: Kick / Snare / ジャンル特有のパーカッション ===
+  if (sequencePattern === "rock") {
+    // Kick: 0, 4, 8, 12 (4 分)
+    if (step % 4 === 0) playKick(ctx, time);
+    // Snare: 4, 12 (バックビート)
+    if (step === 4 || step === 12) playSnare(ctx, time);
+  } else if (sequencePattern === "jazz") {
+    // Kick: 0 のみ
+    if (step === 0) playKick(ctx, time);
+    // Snare ゴースト: 4, 12（ブラシ感）
+    if (step === 4 || step === 12) playSnare(ctx, time, GHOST);
+  } else if (sequencePattern === "funk") {
+    // Kick: 0, 6, 8, 14
+    if (step === 0 || step === 6 || step === 8 || step === 14) {
+      playKick(ctx, time);
     }
+    // Snare: 4, 12 + ゴースト 10
+    if (step === 4 || step === 12) playSnare(ctx, time);
+    if (step === 10) playSnare(ctx, time, GHOST);
+  } else if (sequencePattern === "pop") {
+    // Kick: 0, 8 のみ
+    if (step % 8 === 0) playKick(ctx, time);
+    // Snare: 4, 12
+    if (step === 4 || step === 12) playSnare(ctx, time);
+  } else if (sequencePattern === "soul") {
+    // Kick: 0, 10（ハーフタイム）
+    if (step === 0 || step === 10) playKick(ctx, time);
+    // Snare: 8 (バックビート 1 回) + ゴースト 14
+    if (step === 8) playSnare(ctx, time);
+    if (step === 14) playSnare(ctx, time, GHOST);
+  }
+
+  // === Beat 軸: ハイハットの密度制御 + Funk の Open Hat 衝突調停 ===
+  // Drum=funk の step 2, 10 は Open Hat（特徴音）を Drum 側として常に発音し、
+  // 同タイミングの Beat Closed はスキップして Open を優先する。
+  const funkOpenStep =
+    sequencePattern === "funk" && (step === 2 || step === 10);
+  if (funkOpenStep) {
+    playHiHatOpen(ctx, swungTime);
+  } else if (shouldPlayBeatHihat(step, sequenceBeat)) {
+    // Pop は Beat ハイハットを控えめに（velocity 0.55）。Sprint 12 までの「Pop=控えめ感」を継承。
+    const hihatVelocity = sequencePattern === "pop" ? 0.55 : 1.0;
+    playHiHatClosed(ctx, swungTime, hihatVelocity);
   }
 
   if (beatNumber === nextChordTick) {
@@ -764,6 +788,8 @@ function stopPaletteSequenceInternal(notifyStop: boolean) {
 
 export interface PlayPaletteSequenceOptions {
   instrumentId?: InstrumentId;
+  /** v2.8 (Sprint 13): Beat 軸（ハイハット密度）。省略時は "none" */
+  beatPattern?: BeatPattern;
 }
 
 export function playPaletteSequence(
@@ -792,6 +818,7 @@ export function playPaletteSequence(
   sequencePalette = palette;
   sequenceBpm = bpm;
   sequencePattern = pattern;
+  sequenceBeat = options?.beatPattern ?? "none";
   sequenceOnStop = onStop;
   sequenceOnTick = onTick;
   sequenceIsLooping = isLooping;

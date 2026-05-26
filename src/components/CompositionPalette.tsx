@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import type { PaletteChord } from "../utils/musicTheory";
 import { INSTRUMENT_IDS, INSTRUMENT_PRESETS, type InstrumentId } from "../utils/instrumentPresets";
-import type { DrumPattern } from "../utils/audioEngine";
+import type { BeatPattern, DrumPattern } from "../utils/audioEngine";
 
 interface CompositionPaletteProps {
   palette: PaletteChord[];
@@ -9,6 +9,8 @@ interface CompositionPaletteProps {
   onBpmChange: (bpm: number) => void;
   drumPattern: DrumPattern;
   onDrumPatternChange: (pattern: DrumPattern) => void;
+  beatPattern: BeatPattern;
+  onBeatPatternChange: (pattern: BeatPattern) => void;
   instrumentId: InstrumentId;
   onInstrumentIdChange: (id: InstrumentId) => void;
   isPlaying: boolean;
@@ -43,6 +45,8 @@ export default function CompositionPalette({
   onBpmChange,
   drumPattern,
   onDrumPatternChange,
+  beatPattern,
+  onBeatPatternChange,
   instrumentId,
   onInstrumentIdChange,
   isPlaying,
@@ -101,16 +105,21 @@ export default function CompositionPalette({
   return (
     <div className="workspace-palette">
       <div className="playback-bar">
-        <div className="playback-bar-row playback-bar-settings">
-          <button
-            className={`btn-half-beat ${chordDurationMode !== "1" ? "active" : ""}`}
-            onClick={onToggleDurationMode}
-            title="コードの長さを切り替え (1 → 1/2 → 1/4)"
-            aria-label="コードの長さ"
-          >
-            {chordDurationMode}
-          </button>
-          <div className="playback-item">
+        {/* Sprint 13 (designer): 2+3+3 構成
+            行1 = 時間軸（分割 / BPM）、行2 = 音色軸（Drum / Beat / Tone）、行3 = トランスポート */}
+        <div className="playback-bar-row playback-bar-settings playback-bar-settings-time">
+          <div className="playback-item playback-item--length">
+            <span className="playback-label" aria-hidden="true">LEN</span>
+            <button
+              className={`btn-half-beat ${chordDurationMode !== "1" ? "active" : ""}`}
+              onClick={onToggleDurationMode}
+              title="コードの長さを切り替え (1 → 1/2 → 1/4)"
+              aria-label="コードの長さ"
+            >
+              {chordDurationMode}
+            </button>
+          </div>
+          <div className="playback-item playback-item--bpm">
             <label className="playback-label" htmlFor="bpm-input">BPM</label>
             <input
               id="bpm-input"
@@ -123,6 +132,8 @@ export default function CompositionPalette({
               className="bpm-number-input"
             />
           </div>
+        </div>
+        <div className="playback-bar-row playback-bar-settings playback-bar-settings-tone">
           <div className="playback-item">
             <label className="playback-label" htmlFor="drum-select">Drum</label>
             <select
@@ -137,6 +148,20 @@ export default function CompositionPalette({
               <option value="funk">Funk</option>
               <option value="pop">Pop</option>
               <option value="soul">Soul</option>
+            </select>
+          </div>
+          <div className="playback-item">
+            <label className="playback-label" htmlFor="beat-select">Beat</label>
+            <select
+              id="beat-select"
+              className="beat-select drum-select"
+              value={beatPattern}
+              onChange={(e) => onBeatPatternChange(e.target.value as BeatPattern)}
+            >
+              <option value="none">---</option>
+              <option value="4beat">4 Beat</option>
+              <option value="8beat">8 Beat</option>
+              <option value="16beat">16 Beat</option>
             </select>
           </div>
           <div className="playback-item">

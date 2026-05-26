@@ -23,6 +23,7 @@ import {
   setAudioInterruptedCallback,
   getAudioContextState,
   setPlaybackInstrument,
+  type BeatPattern,
   type DrumPattern,
 } from "./utils/audioEngine";
 import { resetVoicingState } from "./utils/voicing";
@@ -93,6 +94,9 @@ function App() {
   const [drumPattern, setDrumPattern] = useState<DrumPattern>(
     () => getInitialState()?.drumPattern ?? "none"
   );
+  const [beatPattern, setBeatPattern] = useState<BeatPattern>(
+    () => getInitialState()?.beatPattern ?? "none"
+  );
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isLooping, setIsLooping] = useState<boolean>(
     () => getInitialState()?.isLooping ?? false
@@ -125,11 +129,12 @@ function App() {
       palette,
       bpm,
       drumPattern,
+      beatPattern,
       chordDurationMode,
       isLooping,
       instrumentId,
     });
-  }, [selectedKey, palette, bpm, drumPattern, chordDurationMode, isLooping, instrumentId]);
+  }, [selectedKey, palette, bpm, drumPattern, beatPattern, chordDurationMode, isLooping, instrumentId]);
 
   useEffect(() => {
     setPlaybackInstrument(instrumentId);
@@ -324,7 +329,7 @@ function App() {
       (idx) => {
         setCurrentPlayingIndex(idx);
       },
-      { instrumentId }
+      { instrumentId, beatPattern }
     );
     trackEvent("play_sequence", { chords: palette.length, bpm });
   };
@@ -378,6 +383,7 @@ function App() {
         selectedKey,
         bpm,
         drumPattern,
+        beatPattern,
         instrumentId,
         onTick: (idx) => setCurrentPlayingIndex(idx),
       });
@@ -427,7 +433,7 @@ function App() {
     } finally {
       setIsExportingVideo(false);
     }
-  }, [palette, selectedKey, bpm, drumPattern, instrumentId, isExportingVideo]);
+  }, [palette, selectedKey, bpm, drumPattern, beatPattern, instrumentId, isExportingVideo]);
 
   const progressionString = palette.map((c) => c.displayName).join(" - ");
 
@@ -470,6 +476,8 @@ function App() {
           onBpmChange={setBpm}
           drumPattern={drumPattern}
           onDrumPatternChange={setDrumPattern}
+          beatPattern={beatPattern}
+          onBeatPatternChange={setBeatPattern}
           instrumentId={instrumentId}
           onInstrumentIdChange={handleInstrumentIdChange}
           isPlaying={isPlaying}
