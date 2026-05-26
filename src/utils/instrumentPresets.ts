@@ -72,7 +72,7 @@ function naturalHarmonicOscillators(
 export const INSTRUMENT_PRESETS: Record<InstrumentId, InstrumentPreset> = {
   rush: {
     id: "rush",
-    label: "Rush",
+    label: "Piano",
     description: "明るく前に出るポップピアノ（J-POP / シティポップ）",
     // 2〜4 次倍音を厚めにし、ポップピアノらしいキャラクターを強調
     oscillators: naturalHarmonicOscillators(6, 0.15),
