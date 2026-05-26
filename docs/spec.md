@@ -1,3 +1,166 @@
+# 収益化・プロダクト要件（三位一体モデル）
+
+出典: `Chord Palette 収益化ロードマップ策定.pdf`（2026）  
+開発スキル: `.agents/skills/chord_palette_monetization/SKILL.md`  
+ロードマップ: `docs/monetization-roadmap.md`
+
+## v3.0 - Sprint 16: Stripe + MIDI Pro（実装フェーズ確定）
+
+v2.9.3 までで完成した無料体験を維持したまま、**MIDI エクスポートだけを Pro 機能として有料化**する。
+詳細仕様は [`docs/sprints/sprint-16.md`](./sprints/sprint-16.md)。
+
+### 設計判断の更新（M4 案からの差分）
+
+| 項目 | M4 案（旧） | Sprint 16（採用） |
+|---|---|---|
+| 決済プロバイダ | Lemon Squeezy | **Stripe Payment Link** |
+| ライセンス管理 | Lemon Squeezy API + instance 紐付け | **HMAC-SHA256 自己検証 + Stripe Customer Metadata** |
+| Pro 機能 | MIDI + 転調 + ライブラリ（同時実装） | **MIDI のみ**（転調・ライブラリは別スプリント） |
+| MIDI ライブラリ | `midi-writer-js` | **`@tonejs/midi`** |
+| MIDI トラック構成 | Chord のみ | **Chord + Drum（2 トラック）** |
+
+採用理由: (1) 日本市場で Stripe 選好、(2) Lemon Squeezy の instance 管理が不要となり「DB なし」がより純粋に実現、(3) Stripe ダウン時もアプリは無料機能で動作継続、(4) Anthropic API Function (`api/explain.ts`) と同じ Vercel Functions 流儀で統一可能。
+
+Lemon Squeezy 統合計画（M4）は本スプリント完了後にアーカイブする。
+
+### Sprint 16 サマリ
+
+| 項目 | 仕様 |
+|---|---|
+| ライセンス形式 | `XXXX-XXXX-XXXX`（base32 大文字 12 文字 + ハイフン区切り）。`HMAC-SHA256(LICENSE_SECRET, "v1:" + customerId + ":" + paymentIntentId)` の先頭 60bit |
+| 失効 | 永続（買い切り）。多端末利用は許容（DB なし制約） |
+| サーバー | `api/stripe-webhook.ts`（Webhook 署名検証 + キー生成）+ `api/verify-license.ts`（HMAC 検証 + Stripe Customer 検索） |
+| クライアント保存 | `localStorage["cp_pro_license"]`。24 時間以内に検証成功した履歴があれば API スキップ（オフライン対応） |
+| 購入後導線 | Stripe Payment Link 戻り時の `?license=XXXX-XXXX-XXXX` を自動取り込み + `history.replaceState` で URL から除去 |
+| MIDI ファイル | SMF Type 1、PPQ 480、Track 1 = Chord (channel 0, GM 0)、Track 2 = Drum (channel 9、GM Drum Map)、パレット全長ループ |
+| UI | playback-bar 行3 に MIDI ボタン（Pro 未保有時 🔒）+ `ProModal`（購入 + ライセンス入力） |
+| バンドル上限 | gzip 147 kB（@tonejs/midi 約 15 kB 増分許容、超過時は動的 import） |
+
+### 必要な環境変数（Vercel Project Settings）
+
+サーバーのみ（**`VITE_` プレフィクス禁止**）:
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `LICENSE_SECRET`（32 文字以上のランダム）
+- `STRIPE_PRODUCT_ID_PRO`
+- `STRIPE_API_VERSION`
+
+クライアント可:
+- `VITE_STRIPE_PAYMENT_URL`
+- `VITE_PRO_PRICE_LABEL`
+
+### v3.0 で守る制約
+
+- v2.9.3 までの全機能（再生・編集・転回形 / 3 音色 / Rush サンプル / 5 ジャンルドラム / Beat 軸 / 動画書き出し / 履歴 / モバイル UI）にリグレッションを出さない
+- 試聴・基本スケッチをペイウォールの内側に置かない（CVR 維持）
+- 秘密鍵がクライアントバンドルに露出しない（grep ゲートで確認）
+- 375px モバイル UI の破綻なし、iOS Safari の AudioContext lifecycle 維持
+
+---
+
+## ビジョン
+
+Chord Palette は **TikTok 集客 × Web アプリ課金 × 有料 note** のフライホイールの中心プロダクトである。  
+機能追加は「作曲体験」だけでなく **検索流入・課金転換・動画映え・実装の再販可能さ** を満たすかで優先度を決める。
+
+## フリーミアム境界（Planner 確定・レポート準拠）
+
+### 無料（集客・バイラル維持）
+
+| 領域 | 内容 |
+|------|------|
+| コア | コード進行スケッチ、試聴、編集・差し替え、T/SD/D 表示 |
+| 音 | Rush / SenseElepix / Upright、5 ジャンルドラム、Beat 軸、メロディプリセット（v3.0） |
+| 共有 | 動画書き出し（現行 720p）、テキスト共有、`#ChordPalette` |
+| 保存 | `localStorage` によるセッション復元、**履歴 5 件**（現行） |
+
+### Pro（有料解放 — 実装優先度順）
+
+| 優先 | 機能 | 要件 | 技術 |
+|------|------|------|------|
+| P1 | **MIDI エクスポート** | 現在の `palette` から 1 ファイル DL。DAW ドラッグ前提 | クライアントのみ `midi-writer-js`。サーバー処理なし |
+| P2 | **自動トランスポーズ** | ヘッダーでキー変更時、パレット内コードを一括再計算（度数・テンション・オンコード維持） | `musicTheory.ts` 拡張（`@tonaljs` は任意） |
+| P3 | **進行ライブラリ** | 名前付き複数スロットの保存・呼び出し | IndexedDB 推奨（容量）。認証・クラウド同期は **Phase 3 以降** |
+
+**product 判断で Pro にできる候補（レポート・M3 案）:** 1080p 動画、ウォーターマーク除去、転回形フル、短調キー、クラウド同期（Supabase）。
+
+## 課金・ライセンス（DB/Auth 不要）
+
+| 項目 | 仕様 |
+|------|------|
+| 決済 | **Lemon Squeezy**（ライセンスキー + 任意サブスク）。初期は Stripe Customer Portal を置かない |
+| サーバー | `activate` / `validate` のみ（Vercel Serverless Functions 等）。**Next.js 前提ではない**（Vite SPA） |
+| クライアント状態 | `licenseKey` + `instanceId` を localStorage（`cp_state_v1` とはキー分離） |
+| 購入後 | リダイレクト URL `?license_key=` を起動時に検出し、自動 activate → Pro UI 解放 |
+| セキュリティ | `LEMON_SQUEEZY_VARIANT_ID` で variant 照合。instance 上限による使い回し防止 |
+| env（例） | `LEMON_SQUEEZY_API_KEY`（サーバーのみ）、`LEMON_SQUEEZY_VARIANT_ID`、`VITE_LEMON_CHECKOUT_URL` |
+
+**既存 M2（Ko-fi / Waitlist）:** Phase 1 検証用として維持可。本番ペイウォールは Lemon Squeezy に統一する方向。
+
+## マーケ・成長に直結するプロダクト要件
+
+### SEO・ランディング
+
+- 検索キーワード **「コードパレット」** での指名検索を前提（TikTok 説明欄から URL コピー不可）
+- `index.html` の `<title>` / `description` / OGP に日本語キーワードを含める
+- 動画・Canvas フッターに `chord-palette.vercel.app` を表示（現行 `videoRenderer` 方針と一致）
+
+### TikTok / 動画
+
+- ラスト 3 秒スライド案: 「ブラウザで『コードパレット』と検索」（アプリ外制作でも可）
+- **3 大進行デモ**（コンテンツ・オンボーディング用プリセット候補）:
+  - 王道 4-5-3-6（C: F–G–Em–Am）
+  - チル（C: F△7–C△7–E/F#–Em/A）
+  - 丸サ系（C: Fmaj7–E7–Am7–Gm7–C7）
+- CRP 向け **1 分以上**解説動画はアプリ外だが、**1 分未満の書き出し上限**と矛盾しないよう product で線引き
+
+### 映え UI（オプション機能）
+
+録画・デモモードで和音構成音を **役割別 5 色**でハイライト（既存 T/SD/D とは別レイヤ）:
+
+| 役割 | 色 |
+|------|-----|
+| ルート | `#10b981` |
+| 3 度 | `#f59e0b` |
+| 5 度 | `#0ea5e9` |
+| 7 度 | `#6366f1` |
+| テンション | `#d946ef` |
+
+背景トーン目安: `#090a0c`, `#111215`（既存ダークテーマと両立）
+
+## 計測要件（Analytics）
+
+`src/utils/analytics.ts` に追加予定のイベント（Plausible 等）:
+
+| イベント | 用途 |
+|----------|------|
+| `license_activate_success` / `license_activate_fail` | 課金ファネル |
+| `midi_export` | Pro 価値検証 |
+| `checkout_click` | Lemon 購入導線 |
+| `landing` + UTM / `?from=tiktok` | TikTok 流入 |
+
+Phase 1 ゲート（`docs/phase1-gate.md`）の UU / `video_export` / シェア指標は **継続して監視**する。
+
+## スプリントへの落とし込み（未割当 → Planner）
+
+| スプリント案 | スコープ |
+|--------------|----------|
+| **M4-monetization-core** | Lemon Squeezy、license API、Pro フラグ、購入後 URL、P1 MIDI |
+| **M5-transpose-pro** | P2 自動トランスポーズ + キー変更 UX |
+| **M6-library-local** | P3 IndexedDB ライブラリ |
+| **M7-growth-ui** | SEO meta、3 大進行プリセット、5 色ハイライト（デモモード） |
+
+`docs/sprints/sprint-m3-monetization.md`（Supabase + Stripe）は **MAU・WTP 証明後**。本セクションの Lemon Squeezy フリーミアムが先。
+
+## 制約（収益化スプリント共通）
+
+- 375px モバイル・iOS AudioContext・既存 v2.9/v3.0 機能にリグレッションなし
+- **試聴・基本スケッチをペイウォールの内側に置かない**
+- 特定楽曲・アーティスト名を UI ラベルに使わない（v3.0 著作権方針）
+- ライセンス検証失敗時は **無料機能は常に利用可能**（エラーはトースト + 再入力）
+
+---
+
 # Chord Palette v2.9（Rush 音色のサンプル化：ハイブリッド方式）
 
 ## 概要（v2.9）

@@ -5,7 +5,7 @@
 **Chord Palette** はモバイル特化の直感的コード進行ビルダーWebアプリ。
 作曲家・ミュージシャンが素早くコード進行をスケッチするためのツール。
 
-- **現行バージョン:** v2.9.3
+- **現行バージョン:** v3.0.0
 - **本番URL:** https://chord-palette.vercel.app/
 - **ホスティング:** Vercel
 
@@ -284,12 +284,16 @@ Generator →（音声時 Sound Critic）→ Designer → Evaluator の順序は
 - **音声機能のテストは Playwright だけでは難しい**: **Sound Critic** が音色・進行の聴感チェックリストを担当。Evaluator は UI・契約の網羅と `browser_evaluate` による AudioContext 状態確認。最終的な iPhone 実機聴取はユーザー確認をレポートに明記する
 - **モバイル前提**: Designer は 375px のレイアウトを最優先で確認する
 - **Tailwind v4 + index.css のハイブリッド構成**: Designer はどちらで書くかを Generator の完了報告から判断する
+- **収益化・グロース**: 課金・Pro・MIDI・ライセンス・TikTok 導線を扱うときは `.agents/skills/chord_palette_monetization/SKILL.md` と `docs/spec.md` § 収益化を前提とする
 
 ### 7. ファイル配置
 
 ```
 /
 ├── CLAUDE.md                    # このファイル
+├── .agents/skills/
+│   ├── chord_palette_design/
+│   └── chord_palette_monetization/  # 収益化レポート由来の開発前提
 ├── .claude/agents/
 │   ├── planner.md
 │   ├── generator.md
@@ -298,6 +302,7 @@ Generator →（音声時 Sound Critic）→ Designer → Evaluator の順序は
 │   └── evaluator.md
 ├── docs/                        # パイプライン稼働時に作成される
 │   ├── spec.md
+│   ├── monetization-roadmap.md
 │   ├── design-tokens.md         # 任意
 │   ├── design-references/       # 任意（参考画像）
 │   └── sprints/

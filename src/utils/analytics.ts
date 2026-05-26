@@ -12,7 +12,10 @@ export type AnalyticsEvent =
   | "video_export"
   | "tone_change"
   | "chord_add"
-  | "share_video";
+  | "share_video"
+  // Sprint 16: Pro 機能（MIDI エクスポート + ライセンス活性化）
+  | "midi_export"
+  | "pro_activated";
 
 declare global {
   interface Window {

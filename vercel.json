@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/pro/success", "destination": "/index.html" }
+  ],
+  "functions": {
+    "api/stripe-webhook.ts": {
+      "maxDuration": 10
+    },
+    "api/verify-license.ts": {
+      "maxDuration": 10
+    },
+    "api/checkout-license.ts": {
+      "maxDuration": 10
+    },
+    "api/explain.ts": {
+      "maxDuration": 10
+    }
+  }
+}

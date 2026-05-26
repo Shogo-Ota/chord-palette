@@ -540,11 +540,17 @@ body::before {
 }
 
 /* 320px 以下（iPhone SE 第1世代）でも横並びを維持
- * Sprint 14 (v2.8.2): SE 1st の 568px 縦解像度ではさらに圧縮が必要 */
+ * Sprint 14 (v2.8.2): SE 1st の 568px 縦解像度ではさらに圧縮が必要
+ * Sprint 16 (designer): playback-bar-transport が 4 ボタンに増えたため
+ *   gap を 12→10px に詰めて、画面端の余白を確実に確保。
+ *   44×4 + 10×3 = 206px, 320 - padding 14 = 306px なので 100px 以上の余裕あり */
 @media (max-width: 320px) {
   .playback-bar {
     padding: 7px 7px;
     gap: 5px;
+  }
+  .playback-bar-transport {
+    gap: 10px;
   }
   .playback-item {
     gap: 3px;
@@ -556,6 +562,13 @@ body::before {
   .playback-label {
     font-size: 8px;
     letter-spacing: 0.04em;
+  }
+  /* MIDI ボタンのロックバッジは小画面でも視認できる最小サイズを維持 */
+  .btn-playback.btn-midi-export .btn-midi-export-lock {
+    width: 13px;
+    height: 13px;
+    right: 2px;
+    bottom: 2px;
   }
 }
 
@@ -2694,4 +2707,763 @@ body::before {
 
 @media (max-width: 360px) {
   .chord-grid, .ndc-card-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* =====================================================================
+   Sprint 16 (Designer): MIDI 書き出しボタン + ProModal
+   -----------------------------------------------------------------------
+   設計判断:
+   - Pro 機能=紫紫アクセントは Header アイコン（青→紫紫グラデ）と整合する
+     既存ブランドカラー言語を継承。Tone セレクタの紫 glow とは
+     「ロード状態の subtle pulse」 vs 「Pro 機能の border / fill」で
+     役割を明確に分離する（pulse は使わない）。
+   - ロック状態は彩度を落としつつも金色 🔒 で「気づかれる」中庸を取る。
+     完全グレースケールにするとアクセシビリティが低く Tap 動機が落ちる。
+   - 既存 4 ボタン（🎬橙系/🔁青/▶緑）と並んだとき主役にならない強度。
+   ===================================================================== */
+
+/* --- MIDI ボタン（playback-bar 行3、🎬 の右隣） --- */
+.btn-playback.btn-midi-export {
+  /* Pro 保有時の通常状態：金属的な紫紺。Header アイコン（#3b82f6→#6366f1→#8b5cf6）の
+     右側 2 色を引用しつつ、彩度を抑えて「課金済みの落ち着いた特別感」を表現 */
+  background:
+    linear-gradient(135deg, rgba(99, 102, 241, 0.28) 0%, rgba(139, 92, 246, 0.22) 100%),
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.12) 0%, transparent 55%);
+  border-color: rgba(129, 140, 248, 0.48);
+  color: #e0e7ff;
+  position: relative;
+  overflow: hidden;
+  font-size: 15px;
+  line-height: 1;
+  /* 内側ハイライト：上端からの細い光で「プレミアム」感を出す */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 2px 8px rgba(99, 102, 241, 0.18);
+}
+
+.btn-playback.btn-midi-export:hover:not(:disabled) {
+  background:
+    linear-gradient(135deg, rgba(99, 102, 241, 0.42) 0%, rgba(139, 92, 246, 0.36) 100%),
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.18) 0%, transparent 55%);
+  border-color: rgba(129, 140, 248, 0.78);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(129, 140, 248, 0.28),
+    0 6px 18px rgba(99, 102, 241, 0.42);
+}
+
+.btn-playback.btn-midi-export:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.btn-playback.btn-midi-export:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* ロック状態（Pro 未保有） — 彩度を落としつつ金色 🔒 で気づかせる */
+.btn-playback.btn-midi-export.locked {
+  background:
+    linear-gradient(135deg, rgba(71, 85, 105, 0.32) 0%, rgba(51, 65, 85, 0.28) 100%);
+  border-color: rgba(148, 163, 184, 0.32);
+  color: rgba(226, 232, 240, 0.62);
+  /* 内側影で「窪み」感を作り、「触れる」のではなく「触れない」状態を視覚化 */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 12px rgba(0, 0, 0, 0.25);
+  filter: none; /* 完全グレースケールにせず 🎹 の色味は残す */
+}
+
+.btn-playback.btn-midi-export.locked:hover:not(:disabled) {
+  background:
+    linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, rgba(139, 92, 246, 0.14) 100%);
+  border-color: rgba(129, 140, 248, 0.45);
+  color: #e0e7ff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 1px rgba(129, 140, 248, 0.22),
+    0 4px 14px rgba(99, 102, 241, 0.22);
+}
+
+/* 🎹 アイコン本体：ロック時はやや透過、Pro 時は通常表示 */
+.btn-playback.btn-midi-export .btn-midi-export-icon {
+  font-size: 15px;
+  opacity: 0.85;
+  display: inline-block;
+  line-height: 1;
+  /* hover 時に明るくフェード */
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.btn-playback.btn-midi-export.locked:hover .btn-midi-export-icon {
+  opacity: 1;
+}
+
+/* 🔒 オーバーレイ：右下に固定。金色で「ここを解放できる」シグナル。
+   OS 絵文字の幅差を吸収するため、明示的に width/height を取り中央寄せ。 */
+.btn-playback.btn-midi-export .btn-midi-export-lock {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 14px;
+  height: 14px;
+  font-size: 9px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-radius: 5px;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  color: #fbbf24;
+  /* 内側に微細なシャドウで「貼り付いたバッジ」感を出す */
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 1px 3px rgba(0, 0, 0, 0.4),
+    inset 0 0 4px rgba(251, 191, 36, 0.18);
+}
+
+/* 書き出し中：MIDI 紫グロウのパルス（Tone セレクタの loading とは
+   サイズ・配置・要素種別が異なるので衝突しない） */
+.btn-playback.btn-midi-export.exporting {
+  animation: pulse-midi-exporting 1.05s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pulse-midi-exporting {
+  0%, 100% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 0 0 0 rgba(129, 140, 248, 0.7),
+      0 0 12px rgba(129, 140, 248, 0.4);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 0 0 8px rgba(129, 140, 248, 0),
+      0 0 22px rgba(129, 140, 248, 0.7);
+  }
+}
+
+/* --- ProModal —
+   既存 ChordSelectorSheet（rgba(15,15,30,0.92) + blur 24px）と
+   同じガラス調言語を継承。Sprint 16 はモーダル「上から被せ」ではなく
+   既存シートと同列の「ボトム要素」として馴染ませる。
+*/
+.pro-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(99, 102, 241, 0.12) 0%, transparent 55%),
+    rgba(6, 8, 18, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 1100; /* ChordSelectorSheet (1000) より上 */
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+
+@media (min-width: 640px) {
+  .pro-modal-backdrop {
+    align-items: center;
+    padding: 24px;
+  }
+}
+
+.pro-modal {
+  position: relative;
+  /* ChordSelectorSheet と同じ rgba ベースの濃い藍 + blur で統一 */
+  background:
+    linear-gradient(180deg, rgba(30, 41, 59, 0.96) 0%, rgba(15, 23, 42, 0.98) 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  color: #e2e8f0;
+  border-radius: 20px 20px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  width: 100%;
+  max-width: 480px;
+  /* safe-area-inset-bottom を取り込んでホームインジケータと干渉しない */
+  padding: 22px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+  box-shadow:
+    0 -8px 32px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  max-height: 92vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.pro-modal::-webkit-scrollbar { width: 4px; }
+.pro-modal::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+@media (min-width: 640px) {
+  .pro-modal {
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 26px 24px 28px;
+  }
+}
+
+@media (max-width: 360px) {
+  .pro-modal {
+    padding: 18px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.pro-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.5);
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  font-family: inherit;
+}
+
+.pro-modal-close:hover {
+  background: rgba(51, 65, 85, 0.85);
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #f8fafc;
+}
+
+.pro-modal-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 6px 20px 0;
+}
+
+/* 🎹 アイコン：Header の ♪ アイコンと同じグラデ言語で「ブランド一貫」を演出。
+   ただし、Header より控えめにし「機能アイコン」止まりに */
+.pro-modal-icon {
+  font-size: 32px;
+  line-height: 1;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--tonic) 0%, #6366f1 55%, #8b5cf6 100%);
+  border-radius: 14px;
+  box-shadow:
+    0 6px 18px rgba(99, 102, 241, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+  position: relative;
+  overflow: hidden;
+  /* 🎹 グリフが少し下に寄って見えるのを補正 */
+  padding-bottom: 2px;
+}
+
+.pro-modal-icon::after {
+  content: "";
+  position: absolute;
+  top: -25%;
+  left: -25%;
+  width: 60%;
+  height: 60%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.32) 0%, rgba(255, 255, 255, 0) 70%);
+  pointer-events: none;
+}
+
+.pro-modal-title {
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.35;
+  margin: 0;
+  color: #f8fafc;
+  letter-spacing: -0.01em;
+}
+
+.pro-modal-description {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #94a3b8;
+  text-align: center;
+  margin: 12px 6px 0;
+}
+
+.pro-modal-section {
+  margin-top: 18px;
+  padding: 16px 14px 18px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pro-modal-section--active {
+  background:
+    linear-gradient(180deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.04) 100%);
+  border-color: rgba(16, 185, 129, 0.42);
+  /* 緑のアクセントが Pro 「有効」感を強化 */
+  box-shadow: inset 0 1px 0 rgba(16, 185, 129, 0.15);
+}
+
+.pro-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  padding-bottom: 2px;
+}
+
+.pro-price-amount {
+  font-size: 28px;
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+  /* 数字を等幅・整形 */
+  font-feature-settings: "tnum" 1;
+  /* 価格に微細な光を当てて課金感を演出 */
+  background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.pro-price-note {
+  font-size: 12px;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+}
+
+/* CTA「Stripe で購入」: brand-neutral 紫グラデ + 上端の細い光ライン。
+   既存 T(青)/SD(琥珀)/D(赤) の機能色とは別レイヤーの「課金 CTA」として確立 */
+.pro-modal-purchase {
+  width: 100%;
+  padding: 14px 14px;
+  border-radius: 12px;
+  border: none;
+  background:
+    linear-gradient(135deg, #6366f1 0%, #7c3aed 50%, #8b5cf6 100%);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  font-family: inherit;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.12s ease, box-shadow 0.18s ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 6px 18px rgba(99, 102, 241, 0.4);
+}
+
+/* 上端のシャイン：プレミアム感のキモ */
+.pro-modal-purchase::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.pro-modal-purchase:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 10px 24px rgba(99, 102, 241, 0.52);
+}
+
+.pro-modal-purchase:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.pro-modal-purchase:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pro-modal-divider {
+  position: relative;
+  text-align: center;
+  margin: 18px 0 6px;
+  color: #64748b;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.pro-modal-divider span {
+  /* テキスト両側にだけ背景を当てて、線とテキストが綺麗に切れて見える。
+     ProModal のグラデ背景の中間色（藍）に近い solid を使うことで blur 越しでも段差が出ない */
+  position: relative;
+  padding: 0 12px;
+  background: rgba(22, 32, 50, 0.98);
+  z-index: 1;
+}
+
+.pro-modal-divider::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(148, 163, 184, 0.22) 30%,
+    rgba(148, 163, 184, 0.22) 70%,
+    transparent 100%
+  );
+}
+
+.pro-modal-section-label {
+  font-size: 12px;
+  color: #cbd5e1;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ライセンス入力欄：12 文字 + 2 ハイフン = 14 文字を読み取りやすく。
+   字間を広げつつ、placeholder の暗い色で「キーが入る場所」を明示 */
+.pro-license-input {
+  width: 100%;
+  padding: 14px 14px;
+  font-size: 17px;
+  letter-spacing: 0.22em;
+  text-align: center;
+  font-family: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+  /* 入力欄の背景：奥行きを出すため、内側に暗い影 */
+  background:
+    linear-gradient(180deg, rgba(2, 6, 16, 0.85) 0%, rgba(8, 12, 24, 0.92) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 11px;
+  color: #f8fafc;
+  text-transform: uppercase;
+  font-feature-settings: "tnum" 1, "zero" 1;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.pro-license-input::placeholder {
+  color: #475569;
+  letter-spacing: 0.22em;
+  opacity: 0.7;
+}
+
+.pro-license-input:focus {
+  outline: none;
+  border-color: #818cf8;
+  background:
+    linear-gradient(180deg, rgba(2, 6, 16, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.4),
+    0 0 0 3px rgba(129, 140, 248, 0.28);
+}
+
+.pro-license-input.has-error {
+  border-color: #ef4444;
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.35),
+    0 0 0 3px rgba(239, 68, 68, 0.2);
+  animation: shake-error 0.4s ease-in-out;
+}
+
+@keyframes shake-error {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+
+.pro-license-input:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.pro-license-error {
+  margin: 0;
+  padding-left: 4px;
+  font-size: 12px;
+  color: #fca5a5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.pro-license-error::before {
+  /* ⚠ の代わりに red dot + 横線で文脈を作る */
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.55);
+  flex-shrink: 0;
+}
+
+.pro-modal-verify {
+  width: 100%;
+  padding: 13px;
+  border-radius: 11px;
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  background:
+    linear-gradient(180deg, rgba(99, 102, 241, 0.22) 0%, rgba(99, 102, 241, 0.12) 100%);
+  color: #c7d2fe;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.pro-modal-verify:hover:not(:disabled) {
+  background:
+    linear-gradient(180deg, rgba(99, 102, 241, 0.36) 0%, rgba(99, 102, 241, 0.2) 100%);
+  border-color: rgba(129, 140, 248, 0.7);
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.25), 0 4px 14px rgba(99, 102, 241, 0.3);
+}
+
+.pro-modal-verify:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pro-modal-footer {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+}
+
+.pro-modal-dismiss {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 8px 18px;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+  border-radius: 8px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.pro-modal-dismiss:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* --- Pro 有効状態 ---
+   緑系（成功色）で「Pro 有効」を明確に。だが Tonic/SD/Dominant とは
+   別カテゴリの色（#10b981 系）を採用してコード機能色と被らない */
+.pro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  background:
+    linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.16) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.55);
+  border-radius: 999px;
+  color: #6ee7b7;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  align-self: center;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 10px rgba(16, 185, 129, 0.22);
+}
+
+.pro-badge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 11px;
+  font-weight: 900;
+  background: rgba(16, 185, 129, 0.45);
+  color: #f0fdf4;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.6);
+  line-height: 1;
+}
+
+.pro-badge-label {
+  line-height: 1;
+}
+
+.pro-license-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 10px;
+  background:
+    linear-gradient(180deg, rgba(2, 6, 16, 0.7) 0%, rgba(8, 12, 24, 0.55) 100%);
+  border-radius: 11px;
+  border: 1px dashed rgba(148, 163, 184, 0.32);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.28);
+}
+
+.pro-license-display-label {
+  font-size: 10px;
+  color: #94a3b8;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.pro-license-display-key {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 16px;
+  letter-spacing: 0.24em;
+  color: #f8fafc;
+  font-weight: 600;
+  /* 解除ボタンと並んだ時のリズム維持のため、明示的に line-height を設定 */
+  line-height: 1.2;
+}
+
+.pro-modal-clear {
+  margin-top: 4px;
+  width: 100%;
+  padding: 11px;
+  border-radius: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.08);
+  color: #fca5a5;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.pro-modal-clear:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.65);
+  color: #fecaca;
+}
+
+.pro-modal-clear:active {
+  transform: scale(0.98);
+}
+
+/* ===== Checkout Success (/pro/success) ===== */
+.checkout-success-page {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg-primary);
+}
+
+.checkout-success-card {
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+  padding: 28px 22px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius);
+  backdrop-filter: blur(16px);
+}
+
+.checkout-success-logo {
+  font-size: 40px;
+  margin: 0 0 8px;
+  line-height: 1;
+}
+
+.checkout-success-title {
+  margin: 0 0 16px;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.checkout-success-message {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.checkout-success-message--error {
+  color: rgba(252, 165, 165, 0.95);
+}
+
+.checkout-success-hint {
+  margin: 16px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.checkout-success-spinner {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--tonic);
+  border-radius: 50%;
+  animation: checkout-spin 0.85s linear infinite;
+}
+
+@keyframes checkout-spin {
+  to { transform: rotate(360deg); }
+}
+
+.checkout-success-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  background: var(--tonic);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px var(--tonic-glow);
+}
+
+.checkout-success-btn:hover {
+  filter: brightness(1.06);
 }

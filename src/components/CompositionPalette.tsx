@@ -34,6 +34,14 @@ interface CompositionPaletteProps {
   onToggleDurationMode: () => void;
   onExportVideo?: () => void;
   isExportingVideo?: boolean;
+  /** Sprint 16: MIDI 書き出し（Pro 機能） */
+  onExportMidi?: () => void;
+  /** Sprint 16: MIDI 書き出し中フラグ（ローディング表示用） */
+  isExportingMidi?: boolean;
+  /** Sprint 16: Pro 機能が有効か（false なら 🔒 表示） */
+  isProUser?: boolean;
+  /** Sprint 16: Pro 未保有時のロックボタン押下時に開く */
+  onOpenProModal?: () => void;
   emptyHint?: string;
   heroTagline?: string;
 }
@@ -72,6 +80,10 @@ export default function CompositionPalette({
   onToggleDurationMode,
   onExportVideo,
   isExportingVideo = false,
+  onExportMidi,
+  isExportingMidi = false,
+  isProUser = false,
+  onOpenProModal,
   emptyHint = "下のコードから選んで追加",
   heroTagline,
 }: CompositionPaletteProps) {
@@ -223,6 +235,42 @@ export default function CompositionPalette({
               aria-label="動画として共有"
             >
               {isExportingVideo ? "⏺" : "🎬"}
+            </button>
+          )}
+          {/* Sprint 16: MIDI 書き出し（Pro 機能） — 🎬 の右隣 */}
+          {(onExportMidi || onOpenProModal) && (
+            <button
+              className={`btn-playback btn-midi-export ${!isProUser ? "locked" : ""} ${isExportingMidi ? "exporting" : ""}`}
+              onClick={() => {
+                if (!isProUser) {
+                  onOpenProModal?.();
+                  return;
+                }
+                if (isPlaying) onStop();
+                onExportMidi?.();
+              }}
+              disabled={
+                isExportingMidi ||
+                isExportingVideo ||
+                (isProUser && palette.length === 0)
+              }
+              title={
+                isProUser
+                  ? "MIDI ファイルとして書き出し"
+                  : "Pro 機能：MIDI 書き出し"
+              }
+              aria-label={
+                isProUser ? "MIDI 書き出し" : "Pro 機能：MIDI 書き出し（ロック中）"
+              }
+            >
+              {isProUser ? (
+                <>🎹</>
+              ) : (
+                <>
+                  <span className="btn-midi-export-icon" aria-hidden="true">🎹</span>
+                  <span className="btn-midi-export-lock" aria-hidden="true">🔒</span>
+                </>
+              )}
             </button>
           )}
           <button

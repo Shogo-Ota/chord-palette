@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import CheckoutSuccess from './components/CheckoutSuccess.tsx'
 import { warnIfInsecureContext } from './utils/clipboard'
 import { initAnalytics } from './utils/analytics'
 
@@ -10,8 +11,13 @@ import { initAnalytics } from './utils/analytics'
 warnIfInsecureContext()
 initAnalytics()
 
+function isCheckoutSuccessPath(): boolean {
+  const path = window.location.pathname.replace(/\/+$/, '') || '/'
+  return path === '/pro/success'
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {isCheckoutSuccessPath() ? <CheckoutSuccess /> : <App />}
   </StrictMode>,
 )

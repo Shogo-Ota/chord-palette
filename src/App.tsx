@@ -4,7 +4,9 @@ import CompositionPalette from "./components/CompositionPalette";
 import ChordSelectorSheet from "./components/ChordSelectorSheet";
 import TheoryExplainer from "./components/TheoryExplainer";
 import OnboardingOverlay from "./components/OnboardingOverlay";
+import ProModal from "./components/ProModal";
 import { useOnboarding } from "./hooks/useOnboarding";
+import { useProLicense } from "./hooks/useProLicense";
 import {
   getDiatonicChords,
   getNonDiatonicChords,
@@ -118,12 +120,28 @@ function App() {
   );
   const [audioToast, setAudioToast] = useState<string | null>(null);
   const [isExportingVideo, setIsExportingVideo] = useState(false);
+  // Sprint 16: Pro 機能 / MIDI 書き出し
+  const [proModalOpen, setProModalOpen] = useState(false);
+  const [isExportingMidi, setIsExportingMidi] = useState(false);
+  const proLicense = useProLicense();
   // v2.9 (Sprint 14): Rush サンプラーのロード状態。UI のロード中インジケータに使う。
   const [rushSamplerState, setRushSamplerState] = useState<RushSamplerState>(
     () => getRushSamplerState()
   );
 
   const { showOnboarding, dismissOnboarding } = useOnboarding();
+
+  // 購入失敗時のフォールバック: /?open_pro=1 で Pro モーダルを開く
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("open_pro") === "1") {
+      setProModalOpen(true);
+      params.delete("open_pro");
+      const next = params.toString();
+      const path = window.location.pathname;
+      window.history.replaceState({}, "", next ? `${path}?${next}` : path);
+    }
+  }, []);
 
   const diatonicChords = useMemo(() => getDiatonicChords(selectedKey), [selectedKey]);
   const nonDiatonicChords = useMemo(() => getNonDiatonicChords(selectedKey), [selectedKey]);
@@ -470,6 +488,72 @@ function App() {
     }
   }, [palette, selectedKey, bpm, drumPattern, beatPattern, instrumentId, isExportingVideo]);
 
+  // Sprint 16: URL クエリ ?license= の取り込みが成功したらトーストで通知
+  useEffect(() => {
+    if (proLicense.urlAutoVerified) {
+      setAudioToast("Pro 機能が有効になりました");
+      trackEvent("pro_activated", { source: "url_query" });
+      window.setTimeout(() => setAudioToast(null), 3000);
+      proLicense.consumeUrlAutoVerified();
+    }
+  }, [proLicense.urlAutoVerified, proLicense]);
+
+  // Sprint 16: MIDI 書き出しハンドラ（Pro 機能）
+  const handleExportMidi = useCallback(async () => {
+    if (!proLicense.isPro) {
+      setProModalOpen(true);
+      return;
+    }
+    if (palette.length === 0 || isExportingMidi) return;
+
+    setIsExportingMidi(true);
+    setAudioToast("MIDI を書き出し中…");
+
+    try {
+      // 動的 import: midiExporter は @tonejs/midi を遅延ロードする
+      const { exportPaletteToMidi, deliverMidiBlob } = await import(
+        "./utils/midiExporter"
+      );
+      const { blob, fileName } = await exportPaletteToMidi({
+        palette,
+        bpm,
+        drumPattern,
+        beatPattern,
+      });
+
+      try {
+        const mode = await deliverMidiBlob(blob, fileName);
+        trackEvent("midi_export", { chords: palette.length, mode });
+        setAudioToast(
+          mode === "shared"
+            ? "共有シートを開きました"
+            : "MIDI ファイルを保存しました"
+        );
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          setAudioToast(null);
+        } else {
+          const msg = err instanceof Error ? err.message : "共有に失敗しました";
+          setAudioToast(`共有に失敗しました: ${msg}`);
+        }
+      }
+      window.setTimeout(() => setAudioToast(null), 3000);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "MIDI 書き出しに失敗しました";
+      setAudioToast(msg);
+      window.setTimeout(() => setAudioToast(null), 3500);
+    } finally {
+      setIsExportingMidi(false);
+    }
+  }, [
+    proLicense.isPro,
+    palette,
+    bpm,
+    drumPattern,
+    beatPattern,
+    isExportingMidi,
+  ]);
+
   const progressionString = palette.map((c) => c.displayName).join(" - ");
 
   const keyMismatch =
@@ -537,6 +621,10 @@ function App() {
           }}
           onExportVideo={handleExportVideo}
           isExportingVideo={isExportingVideo}
+          onExportMidi={handleExportMidi}
+          isExportingMidi={isExportingMidi}
+          isProUser={proLicense.isPro}
+          onOpenProModal={() => setProModalOpen(true)}
           emptyHint="下のコードから選んで追加 ↓"
         />
         {palette.length > 0 && hasExplainApi && (
@@ -561,6 +649,17 @@ function App() {
       />
 
       {showOnboarding && <OnboardingOverlay onDismiss={dismissOnboarding} />}
+
+      <ProModal
+        isOpen={proModalOpen}
+        onClose={() => setProModalOpen(false)}
+        isPro={proLicense.isPro}
+        license={proLicense.license}
+        isVerifying={proLicense.isVerifying}
+        error={proLicense.error}
+        onVerify={proLicense.verify}
+        onClear={proLicense.clear}
+      />
     </div>
   );
 }

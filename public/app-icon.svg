@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Chord Palette">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d1028"/>
+      <stop offset="100%" stop-color="#0a0a1a"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="44%" cy="40%" r="58%">
+      <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#22d3ee" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="board" x1="20%" y1="20%" x2="80%" y2="90%">
+      <stop offset="0%" stop-color="#1e2438"/>
+      <stop offset="100%" stop-color="#12141f"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft-glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="12" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="note-glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- 8分音符（♪） -->
+    <g id="eighth-note">
+      <ellipse cx="0" cy="4" rx="13" ry="9.5" fill="currentColor" transform="rotate(-22 0 4)"/>
+      <path
+        d="M 11 0 L 11 -44"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="5.5"
+        stroke-linecap="round"
+      />
+      <path
+        d="M 11 -44 Q 34 -36 30 -14 Q 26 2 11 -6"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="5.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </g>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="112" fill="url(#halo)"/>
+
+  <!-- 控えめな五線（音楽要素の下地） -->
+  <g opacity="0.14" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round">
+    <line x1="88" y1="118" x2="424" y2="118"/>
+    <line x1="88" y1="142" x2="424" y2="142"/>
+    <line x1="88" y1="166" x2="424" y2="166"/>
+  </g>
+
+  <!-- 絵の具パレット（シンボル本体） -->
+  <g transform="translate(256 278) rotate(-18)">
+    <path
+      d="M -168 -72
+         C -168 -132, -108 -168, -36 -168
+         C 48 -168, 108 -128, 132 -72
+         C 156 -16, 168 56, 132 108
+         C 96 160, 24 176, -48 160
+         C -120 144, -168 96, -168 40
+         C -168 8, -168 -24, -168 -72 Z"
+      fill="url(#board)"
+      stroke="rgba(255,255,255,0.12)"
+      stroke-width="4"
+    />
+    <circle cx="88" cy="8" r="36" fill="#0a0a1a" stroke="rgba(255,255,255,0.08)" stroke-width="3"/>
+
+    <g filter="url(#soft-glow)">
+      <ellipse cx="-72" cy="-32" rx="44" ry="36" fill="#3b82f6"/>
+      <ellipse cx="-68" cy="-40" rx="18" ry="12" fill="#ffffff" opacity="0.25"/>
+    </g>
+    <g filter="url(#soft-glow)">
+      <ellipse cx="8" cy="-56" rx="40" ry="34" fill="#f59e0b"/>
+      <ellipse cx="12" cy="-64" rx="16" ry="11" fill="#ffffff" opacity="0.28"/>
+    </g>
+    <g filter="url(#soft-glow)">
+      <ellipse cx="72" cy="-8" rx="42" ry="35" fill="#ef4444"/>
+      <ellipse cx="76" cy="-16" rx="17" ry="11" fill="#ffffff" opacity="0.22"/>
+    </g>
+    <ellipse cx="-20" cy="24" rx="28" ry="22" fill="#22d3ee" opacity="0.85" filter="url(#glow)"/>
+    <ellipse cx="-16" cy="18" rx="10" ry="7" fill="#ffffff" opacity="0.35"/>
+  </g>
+
+  <!-- ♪ 絵の具から漂う音（パレット上・周囲） -->
+  <g filter="url(#note-glow)">
+  <use href="#eighth-note" x="0" y="0" color="#22d3ee"
+       transform="translate(332 108) scale(1.15) rotate(8)" opacity="0.95"/>
+  <use href="#eighth-note" x="0" y="0" color="#ffffff"
+       transform="translate(388 152) scale(0.88) rotate(-12)" opacity="0.75"/>
+  <use href="#eighth-note" x="0" y="0" color="#22d3ee"
+       transform="translate(128 132) scale(0.82) rotate(-28)" opacity="0.7"/>
+  <use href="#eighth-note" x="0" y="0" color="rgba(255,255,255,0.9)"
+       transform="translate(168 88) scale(0.65) rotate(14)" opacity="0.55"/>
+  </g>
+
+  <!-- ♫ 連符風（右上・メインのアクセント） -->
+  <g filter="url(#note-glow)" fill="#22d3ee" transform="translate(402 96) rotate(6)">
+    <ellipse cx="0" cy="6" rx="15" ry="11" transform="rotate(-20 0 6)"/>
+    <path d="M 13 2 L 13 -48" fill="none" stroke="#22d3ee" stroke-width="6" stroke-linecap="round"/>
+    <path d="M 13 -48 Q 38 -38 34 -12" fill="none" stroke="#22d3ee" stroke-width="6" stroke-linecap="round"/>
+    <ellipse cx="28" cy="18" rx="12" ry="9" transform="rotate(-20 28 18)"/>
+    <path d="M 39 14 L 39 -32" fill="none" stroke="#22d3ee" stroke-width="5" stroke-linecap="round"/>
+    <path d="M 13 -20 L 39 -14" fill="none" stroke="#22d3ee" stroke-width="5" stroke-linecap="round"/>
+  </g>
+</svg>
