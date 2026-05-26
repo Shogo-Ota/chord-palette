@@ -182,7 +182,6 @@ export function warnIfInsecureContext(): void {
   if (host === "localhost" || host === "127.0.0.1" || host === "::1") return;
 
   warnedInsecure = true;
-  // eslint-disable-next-line no-console
   console.warn(
     "[Chord Palette] 非 secure context で動作中です (例: http://192.168.x.x:5173)。\n" +
       "navigator.clipboard.writeText は無効化されており、execCommand / navigator.share に fallback します。\n" +

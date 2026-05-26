@@ -24,8 +24,8 @@ export default function TheoryExplainer({ progression }: TheoryExplainerProps) {
     try {
       const result = await explainChords(progression);
       setExplanation(result.explanation);
-    } catch (e: any) {
-      setError(e?.message ?? "エラーが発生しました");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "エラーが発生しました");
     } finally {
       setLoading(false);
     }

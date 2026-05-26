@@ -18,9 +18,12 @@ export type ShareVideoMode =
   | "downloaded-copied" // 動画 DL + テキストをクリップボードへコピー成功
   | "downloaded-only"; // 動画 DL のみ（テキストコピーも失敗）
 
+export const SHARE_HASHTAG = "#ChordPalette";
+export const SHARE_URL = "https://chord-palette.vercel.app/";
+
 export function buildShareText(palette: PaletteChord[], key: Key, bpm: number): string {
   const progression = palette.map((c) => c.displayName).join(" - ");
-  return `こんなコード進行どう？\n${progression}\nKey: ${key} Major / BPM ${bpm}\n#コード進行 #作曲\nhttps://chord-palette.vercel.app/`;
+  return `こんなコード進行どう？\n${progression}\nKey: ${key} Major / BPM ${bpm}\n#コード進行 #作曲 ${SHARE_HASHTAG}\n${SHARE_URL}`;
 }
 
 function downloadFile(file: File): void {

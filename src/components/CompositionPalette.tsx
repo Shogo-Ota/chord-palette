@@ -1,12 +1,16 @@
 import { useState, useEffect } from "react";
 import type { PaletteChord } from "../utils/musicTheory";
+import { INSTRUMENT_IDS, INSTRUMENT_PRESETS, type InstrumentId } from "../utils/instrumentPresets";
+import type { DrumPattern } from "../utils/audioEngine";
 
 interface CompositionPaletteProps {
   palette: PaletteChord[];
   bpm: number;
   onBpmChange: (bpm: number) => void;
-  drumPattern: "none" | "4beat" | "8beat" | "16beat";
-  onDrumPatternChange: (pattern: "none" | "4beat" | "8beat" | "16beat") => void;
+  drumPattern: DrumPattern;
+  onDrumPatternChange: (pattern: DrumPattern) => void;
+  instrumentId: InstrumentId;
+  onInstrumentIdChange: (id: InstrumentId) => void;
   isPlaying: boolean;
   onRemove: (index: number) => void;
   onPlayAll: () => void;
@@ -24,6 +28,7 @@ interface CompositionPaletteProps {
   onExportVideo?: () => void;
   isExportingVideo?: boolean;
   emptyHint?: string;
+  heroTagline?: string;
 }
 
 const FUNCTION_CLASSES: Record<string, string> = {
@@ -38,6 +43,8 @@ export default function CompositionPalette({
   onBpmChange,
   drumPattern,
   onDrumPatternChange,
+  instrumentId,
+  onInstrumentIdChange,
   isPlaying,
   onRemove,
   onPlayAll,
@@ -55,6 +62,7 @@ export default function CompositionPalette({
   onExportVideo,
   isExportingVideo = false,
   emptyHint = "下のコードから選んで追加",
+  heroTagline,
 }: CompositionPaletteProps) {
   const [localBpm, setLocalBpm] = useState<string>(bpm.toString());
 
@@ -121,12 +129,30 @@ export default function CompositionPalette({
               id="drum-select"
               className="drum-select"
               value={drumPattern}
-              onChange={(e) => onDrumPatternChange(e.target.value as "none" | "4beat" | "8beat" | "16beat")}
+              onChange={(e) => onDrumPatternChange(e.target.value as DrumPattern)}
             >
-              <option value="none">なし</option>
-              <option value="4beat">4</option>
-              <option value="8beat">8</option>
-              <option value="16beat">16</option>
+              <option value="none">---</option>
+              <option value="rock">Rock</option>
+              <option value="jazz">Jazz</option>
+              <option value="funk">Funk</option>
+              <option value="pop">Pop</option>
+              <option value="soul">Soul</option>
+            </select>
+          </div>
+          <div className="playback-item">
+            <label className="playback-label" htmlFor="tone-select">Tone</label>
+            <select
+              id="tone-select"
+              className="tone-select drum-select"
+              value={instrumentId}
+              onChange={(e) => onInstrumentIdChange(e.target.value as InstrumentId)}
+              disabled={isExportingVideo}
+            >
+              {INSTRUMENT_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {INSTRUMENT_PRESETS[id].label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -176,6 +202,12 @@ export default function CompositionPalette({
           )}
         </div>
       </div>
+
+      {heroTagline && (
+        <p className="workspace-hero-tagline" role="doc-subtitle">
+          {heroTagline}
+        </p>
+      )}
 
       <div className="palette-canvas">
         {palette.length === 0 ? (

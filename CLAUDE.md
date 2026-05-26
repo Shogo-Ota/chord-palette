@@ -5,7 +5,7 @@
 **Chord Palette** はモバイル特化の直感的コード進行ビルダーWebアプリ。
 作曲家・ミュージシャンが素早くコード進行をスケッチするためのツール。
 
-- **現行バージョン:** v2.3.0
+- **現行バージョン:** v2.7.0
 - **本番URL:** https://chord-palette.vercel.app/
 - **ホスティング:** Vercel
 
@@ -74,12 +74,14 @@ interface PaletteChord {
 }
 ```
 
-### 音声エンジン（audioEngine.ts）
-- Web Audio API で純正弦波（sine + triangle 倍音）を合成
-- ADSRエンベロープ + ハードリミッター + マスターゲインで音割れ防止
-- iOS/Android 対応（sampleRate 強制指定なし、AudioContext resume）
-- `playChord()` — 単音プレビュー
-- `playPaletteSequence()` — 16分音符スケジューラでシーケンス再生
+### 音声エンジン（audioEngine.ts + voicing.ts + instrumentPresets.ts）
+- Web Audio API 合成（3 音色: **Rush**（心地よさ最適化・デフォルト）/ SenseElepix / Upright）
+- `pleasantAcoustics.ts` — 倍音列・微コーラス・ソフトクリップ・軽量リバーブ（研究に基づく設計、[`docs/pleasant-acoustics.md`](docs/pleasant-acoustics.md)）
+- `voicing.ts` — クローズボイシング + 進行横断ボイスリーディング（ベース 36–48、上声部 48–72）
+- ADSR + リミッター + マスターゲインで音割れ防止
+- iOS/Android 対応（AudioContext resume、動画 capture 連携）
+- `playChord(chord, duration, time?, { instrumentId, useVoiceLeading })` — 単音プレビュー
+- `playPaletteSequence(..., { instrumentId })` — シーケンス再生
 - `stopPaletteSequence()` / `resetAudioEngine()` — 停止・リセット
 
 ---
@@ -169,9 +171,9 @@ fix: 修正内容
 
 ---
 
-# 開発パイプライン（4サブエージェント）
+# 開発パイプライン（5サブエージェント）
 
-このプロジェクトのブラッシュアップ・新機能追加は **4つのサブエージェントによるパイプライン** で進める。
+このプロジェクトのブラッシュアップ・新機能追加は **5つのサブエージェントによるパイプライン** で進める。
 あなた（メインの Claude）は **オーケストレーター** として振る舞い、各フェーズで適切なサブエージェントを呼び出す。
 
 ## パイプライン全体像
@@ -191,6 +193,11 @@ fix: 修正内容
    └────┬─────┘
         │ 完了報告
         ▼
+   ┌─────────────┐     ※ 音声スプリントのみ
+   │ sound-critic│  Rush / SenseElepix / Upright の音色・ボイシング評価（J-POP文脈）
+   └────┬────────┘
+        │ 音色テストレポート（合格なら下へ）
+        ▼
    ┌──────────┐
    │ designer │  デザイントークン・参考画像に基づき UI を仕上げる
    └────┬─────┘
@@ -202,7 +209,7 @@ fix: 修正内容
         │
         ├── 合格 ──→ 次のスプリントへ
         │
-        └── 不合格 ──→ Generator または Designer に戻す
+        └── 不合格 ──→ Generator / Designer / Sound Critic に戻す
 ```
 
 ## サブエージェント一覧
@@ -211,10 +218,11 @@ fix: 修正内容
 |---|---|---|---|
 | `planner` | 仕様・スプリント計画 | ユーザーの短いプロンプト | `/docs/spec.md`, `/docs/sprints/sprint-N.md` |
 | `generator` | 機能実装 | スプリント契約 | 動くコード + 完了報告 |
+| `sound-critic` | **音色・ボイシング評価**（音楽理論 + 近年 J-POP 文脈） | 起動中アプリ + 音声スプリント契約 | 音色テストレポート + 合否（戻し先は主に Generator） |
 | `designer` | UI仕上げ | 動くコード + デザイントークン + 参考画像 | スタイル適用済みコード + 完了報告 |
-| `evaluator` | QA・採点 | 起動中のアプリ + スプリント契約 | 合否判定（不合格時は戻し先を明記） |
+| `evaluator` | QA・採点（UI・機能網羅） | 起動中のアプリ + スプリント契約 | 合否判定（不合格時は戻し先を明記） |
 
-各エージェントの詳細仕様は `.claude/agents/*.md` を参照。
+各エージェントの詳細仕様は `.claude/agents/*.md` を参照。音色専門は [`sound-critic.md`](.claude/agents/sound-critic.md)。
 
 ## オーケストレーションルール
 
@@ -226,6 +234,7 @@ fix: 修正内容
 | 「Sprint N を実装して」「次のスプリントを進めて」 | `generator` を呼ぶ |
 | 「デザインを整えて」「UI を仕上げて」 | `designer` を呼ぶ |
 | 「テストして」「合否を判定して」「Evaluator にかけて」 | `evaluator` を呼ぶ |
+| 「音色をテストして」「音を聴いて評価して」「J-POP 的にどうか」 | `sound-critic` を呼ぶ（`npm run dev` 起動済みであること） |
 | 「〇〇機能を最後まで作って」のような包括依頼 | **パイプライン全体を順次実行**（下記フロー参照） |
 | 既存コードの小さな修正・バグ修正 | パイプラインを通さず直接修正してよい |
 
@@ -235,10 +244,11 @@ fix: 修正内容
 2. ユーザーに **spec とスプリント計画の確認** を求める（先に進む前に確認必須）
 3. 各スプリントについて以下を繰り返す：
    1. **generator** を呼んで実装
-   2. **designer** を呼んで UI 仕上げ
-   3. **evaluator** を呼んで合否判定
-   4. 不合格なら、戻し先（generator / designer）に再修正を依頼
-   5. 合格したら次のスプリントへ
+   2. **音声関連スプリント**（`audioEngine` / `instrumentPresets` / `voicing` / Tone UI）なら **sound-critic** で Rush・SenseElepix・Upright を評価
+   3. **designer** を呼んで UI 仕上げ
+   4. **evaluator** を呼んで合否判定（音色の最終判断は sound-critic レポートを尊重）
+   5. 不合格なら、戻し先（generator / sound-critic / designer）に再修正を依頼
+   6. 合格したら次のスプリントへ
 4. 全スプリント完了で終了
 
 ### 3. 不合格フィードバックのハンドリング
@@ -248,7 +258,8 @@ fix: 修正内容
 
 | 戻し先 | 再起動するエージェント |
 |---|---|
-| Generator | `generator` を再度呼ぶ。Evaluator の修正指示をプロンプトに含める |
+| Generator | `generator` を再度呼ぶ。Evaluator / Sound Critic の修正指示をプロンプトに含める |
+| Sound Critic | `sound-critic` を再度呼ぶ（音色調整後）。その後 designer → evaluator |
 | Designer | `designer` を再度呼ぶ。Evaluator の修正指示をプロンプトに含める |
 | 両方 | まず `generator` で機能修正、次に `designer` でデザイン修正、その後 `evaluator` で再評価 |
 
@@ -256,7 +267,7 @@ fix: 修正内容
 
 ### 4. 並列実行はしない
 
-Generator → Designer → Evaluator の順序は **必ず直列**。
+Generator →（音声時 Sound Critic）→ Designer → Evaluator の順序は **必ず直列**。
 
 ### 5. ユーザーへの確認タイミング
 
@@ -270,7 +281,7 @@ Generator → Designer → Evaluator の順序は **必ず直列**。
 ### 6. このプロジェクト固有の注意
 
 - **既存コードを尊重する**: Chord Palette は v2.2.1 まで成熟している。Planner は既存の機能・データ型・UI原則（上記参照）を踏まえて計画を立てる
-- **音声機能のテストは Playwright だけでは難しい**: Evaluator は AudioContext の動作確認に `browser_evaluate` で内部状態を覗くか、ユーザーに手動確認を依頼する
+- **音声機能のテストは Playwright だけでは難しい**: **Sound Critic** が音色・進行の聴感チェックリストを担当。Evaluator は UI・契約の網羅と `browser_evaluate` による AudioContext 状態確認。最終的な iPhone 実機聴取はユーザー確認をレポートに明記する
 - **モバイル前提**: Designer は 375px のレイアウトを最優先で確認する
 - **Tailwind v4 + index.css のハイブリッド構成**: Designer はどちらで書くかを Generator の完了報告から判断する
 
@@ -282,6 +293,7 @@ Generator → Designer → Evaluator の順序は **必ず直列**。
 ├── .claude/agents/
 │   ├── planner.md
 │   ├── generator.md
+│   ├── sound-critic.md      # 音色・J-POP文脈評価
 │   ├── designer.md
 │   └── evaluator.md
 ├── docs/                        # パイプライン稼働時に作成される

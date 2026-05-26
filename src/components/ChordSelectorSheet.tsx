@@ -4,6 +4,7 @@ import TheoryPane from "./TheoryPane";
 import NonDiatonicPane from "./NonDiatonicPane";
 import OnChordPane from "./OnChordPane";
 import type { DiatonicChord, NonDiatonicChord, PaletteChord, Key, DiatonicChordType } from "../utils/musicTheory";
+import { getMaxInversion } from "../utils/musicTheory";
 
 interface ChordSelectorSheetProps {
   activeTab: "diatonic" | "non-diatonic" | "on-chord";
@@ -16,7 +17,20 @@ interface ChordSelectorSheetProps {
   onNonDiatonicClick: (chord: PaletteChord) => void;
   onBassSelect: (bassNote: number, noteName: string) => void;
   selectedKey: Key;
+  /** Sprint 10: 編集中のコード（Inversion トグル表示用）。null のときは非表示 */
+  editingChord?: PaletteChord | null;
+  /** Sprint 10: 編集中インデックス */
+  editingIndex?: number | null;
+  /** Sprint 10: Inversion 変更ハンドラ */
+  onInversionChange?: (index: number, inversion: 0 | 1 | 2 | 3) => void;
 }
+
+const INVERSION_LABELS: { value: 0 | 1 | 2 | 3; label: string }[] = [
+  { value: 0, label: "Root" },
+  { value: 1, label: "1st" },
+  { value: 2, label: "2nd" },
+  { value: 3, label: "3rd" },
+];
 
 export default function ChordSelectorSheet({
   activeTab,
@@ -29,8 +43,26 @@ export default function ChordSelectorSheet({
   onNonDiatonicClick,
   onBassSelect,
   selectedKey,
+  editingChord,
+  editingIndex,
+  onInversionChange,
 }: ChordSelectorSheetProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Sprint 10: Inversion トグル表示条件
+  const showInversionToggle =
+    editingChord != null &&
+    editingIndex != null &&
+    editingIndex >= 0 &&
+    onInversionChange != null;
+
+  const isOnChord =
+    showInversionToggle &&
+    editingChord!.bassNoteOverride !== undefined &&
+    editingChord!.bassNoteOverride !== null;
+
+  const maxInversion = showInversionToggle ? getMaxInversion(editingChord!) : 0;
+  const currentInversion = (editingChord?.inversion ?? 0) as 0 | 1 | 2 | 3;
 
   return (
     <motion.section
@@ -86,6 +118,57 @@ export default function ChordSelectorSheet({
             transition={{ duration: 0.2 }}
             className="selector-expanded-content"
           >
+            {/* Sprint 10: Inversion トグル（編集中のみ表示） */}
+            {showInversionToggle && !isOnChord && (
+              <div
+                className="inversion-toggle"
+                role="group"
+                aria-label="転回形（Inversion）"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span className="inversion-toggle-label">転回</span>
+                <div className="inversion-toggle-buttons">
+                  {INVERSION_LABELS.map(({ value, label }) => {
+                    const disabled = value > maxInversion;
+                    const active = value === currentInversion;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`inversion-btn ${active ? "active" : ""} ${disabled ? "disabled" : ""}`}
+                        disabled={disabled}
+                        aria-pressed={active}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (disabled) return;
+                          onInversionChange!(editingIndex!, value);
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {showInversionToggle && isOnChord && (
+              <div
+                className="inversion-toggle on-chord-locked"
+                role="group"
+                aria-label="転回形（Inversion）— オンコード適用中のため無効"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span className="inversion-toggle-label">転回</span>
+                <span
+                  className="inversion-toggle-hint"
+                  role="status"
+                  aria-live="polite"
+                >
+                  オンコード適用中
+                </span>
+              </div>
+            )}
+
             {activeTab === "diatonic" && (
               <TheoryPane
                 chords={diatonicChords}

@@ -65,6 +65,28 @@ export interface PaletteChord {
   bassNoteOverride?: number; // オンコード（分数コード）用
   key: Key;               // このコードが追加された時のキー
   beats: number;          // 拍数 (1 or 2)
+  /**
+   * 転回形指定（Sprint 10）。
+   * 0 = Root（最低音 = ルート）
+   * 1 = 1st inversion（最低音 = 3rd）
+   * 2 = 2nd inversion（最低音 = 5th）
+   * 3 = 3rd inversion（最低音 = 7th, テトラッドのみ）
+   * 既定は 0。`bassNoteOverride` が指定されているコード（オンコード）では強制的に 0 として扱う。
+   */
+  inversion: 0 | 1 | 2 | 3;
+}
+
+/**
+ * 与えられたコードに対して許可される最大転回番号を返す。
+ * トライアド (intervals.length === 3) → 2
+ * テトラッド以上 (intervals.length >= 4) → 3
+ * それ未満は 0（転回不可）。
+ */
+export function getMaxInversion(chord: Pick<PaletteChord, "intervals">): 0 | 1 | 2 | 3 {
+  const n = chord.intervals.length;
+  if (n >= 4) return 3;
+  if (n === 3) return 2;
+  return 0;
 }
 
 // === Diatonic Chord ===
@@ -166,12 +188,13 @@ export function diatonicToPalette(
         }
       }
       break;
-    default:
+    default: {
       // Triad
       displayName = chord.name;
       const t = CHORD_TYPES[chord.degreeIndex];
       intervals = TRIAD_INTERVALS[t] || [0, 4, 7];
       break;
+    }
   }
 
   const LABEL_SUFFIX: Partial<Record<typeof type, string>> = {
@@ -193,6 +216,7 @@ export function diatonicToPalette(
     isDiatonic: true,
     key,
     beats,
+    inversion: 0,
   };
 }
 
@@ -254,7 +278,15 @@ export function getNonDiatonicChords(key: Key): NonDiatonicChord[] {
   }
 
   // === Modal Interchange (同主調借用など) ===
-  const subdmDefs = [
+  interface ModalInterchangeDef {
+    offset: number;
+    suffix: string;
+    label: string;
+    intervals: number[];
+    suffix7th?: string;
+    intervals7th?: number[];
+  }
+  const subdmDefs: ModalInterchangeDef[] = [
     { offset: 5, suffix: "m", suffix7th: "m7", label: "IVm", intervals: [0, 3, 7], intervals7th: [0, 3, 7, 10] },
     { offset: 7, suffix: "m", suffix7th: "m7", label: "vm", intervals: [0, 3, 7], intervals7th: [0, 3, 7, 10] },
     { offset: 10, suffix: "", label: "♭VII", intervals: [0, 4, 7] },
@@ -264,8 +296,8 @@ export function getNonDiatonicChords(key: Key): NonDiatonicChord[] {
 
   for (const def of subdmDefs) {
     const { offset, suffix, label, intervals } = def;
-    const suffix7th = (def as any).suffix7th;
-    const intervals7th = (def as any).intervals7th;
+    const suffix7th = def.suffix7th;
+    const intervals7th = def.intervals7th;
     const rootInterval = offset % 12;
     const rootIndex = (keyIndex + rootInterval) % 12;
     const rootName = KEYS[rootIndex];
@@ -364,6 +396,7 @@ export function nonDiatonicToPalette(
     isDiatonic: false,
     key,
     beats,
+    inversion: 0,
   };
 }
 

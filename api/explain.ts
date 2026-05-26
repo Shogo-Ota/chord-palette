@@ -11,7 +11,18 @@ const PROMPT_TEMPLATE = `あなたは音楽理論の専門家で、ギタリス�
 
 専門用語は括弧内で必ず説明すること。`;
 
-export default async function handler(req: any, res: any) {
+interface VercelLikeRequest {
+  method?: string;
+  body?: { progression?: string } | null;
+}
+
+interface VercelLikeResponse {
+  status: (code: number) => {
+    json: (body: unknown) => unknown;
+  };
+}
+
+export default async function handler(req: VercelLikeRequest, res: VercelLikeResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -55,7 +66,8 @@ export default async function handler(req: any, res: any) {
     const data = await response.json();
     const explanation: string = data.content[0].text;
     return res.status(200).json({ explanation });
-  } catch (e: any) {
-    return res.status(500).json({ error: e?.message ?? "Unknown error" });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Unknown error";
+    return res.status(500).json({ error: message });
   }
 }

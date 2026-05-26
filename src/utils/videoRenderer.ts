@@ -221,8 +221,8 @@ function drawFooter(ctx: CanvasRenderingContext2D, state: VideoRenderState): voi
   // 進行位置インジケータ（小さなドット列）
   drawProgressDots(ctx, state, top + 18);
 
-  // URL カプセル（左にアイコン、右にドメイン）
-  drawUrlCapsule(ctx, top + 44);
+  // ブランド CTA（共有ループ・Phase M1）
+  drawBrandCta(ctx, top + 38);
 }
 
 function drawProgressDots(
@@ -252,6 +252,21 @@ function drawProgressDots(
       ctx.fill();
     }
   }
+}
+
+function drawBrandCta(ctx: CanvasRenderingContext2D, cy: number): void {
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  ctx.font = "600 15px system-ui, sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.fillText("Made with Chord Palette", VIDEO_WIDTH / 2, cy - 8);
+
+  ctx.font = "700 16px system-ui, sans-serif";
+  ctx.fillStyle = "rgba(167,139,250,0.95)";
+  ctx.fillText("#ChordPalette", VIDEO_WIDTH / 2, cy + 14);
+
+  drawUrlCapsule(ctx, cy + 42);
 }
 
 function drawUrlCapsule(ctx: CanvasRenderingContext2D, cy: number): void {

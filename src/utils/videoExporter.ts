@@ -9,12 +9,14 @@
  */
 
 import type { Key, PaletteChord } from "./musicTheory";
+import type { InstrumentId } from "./instrumentPresets";
 import {
   attachCaptureDestination,
   detachCaptureDestination,
   setExportingVideo,
   playPaletteSequence,
   stopPaletteSequence,
+  type DrumPattern,
 } from "./audioEngine";
 import {
   renderVideoFrame,
@@ -38,7 +40,8 @@ export interface VideoExportOptions {
   palette: PaletteChord[];
   selectedKey: Key;
   bpm: number;
-  drumPattern: "none" | "4beat" | "8beat" | "16beat";
+  drumPattern: DrumPattern;
+  instrumentId?: InstrumentId;
   /** アプリ画面側のハイライト同期用コールバック */
   onTick?: (index: number) => void;
 }
@@ -262,7 +265,8 @@ export async function exportProgressionVideo(
       (idx) => {
         renderState.currentIndex = idx;
         options.onTick?.(idx);
-      }
+      },
+      { instrumentId: options.instrumentId }
     );
   });
 }

@@ -110,6 +110,27 @@ body::before {
   }
 }
 
+/* Phase 1 (M1): LP 一文 — 初回価値提案 */
+.workspace-hero-tagline {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 0 8px;
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: center;
+  color: rgba(200, 210, 240, 0.72);
+  letter-spacing: 0.01em;
+}
+
+@media (max-width: 480px) {
+  .workspace-hero-tagline {
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+}
+
 .workspace-palette {
   width: 100%;
   max-width: 600px;
@@ -300,10 +321,16 @@ body::before {
   cursor: not-allowed;
 }
 
+.tone-select {
+  width: 72px;
+  max-width: 28vw;
+}
+
 @media (max-width: 480px) {
   .playback-label { display: none; }
   .bpm-number-input { width: 44px; }
   .drum-select { width: 44px; }
+  .tone-select { width: 56px; max-width: 22vw; font-size: 11px; }
 }
 
 @media (max-width: 320px) {
@@ -785,6 +812,178 @@ body::before {
   padding: 0 16px 16px;
   max-height: calc(60vh - 60px);
   overflow-y: auto;
+}
+
+/* ===== Sprint 10: Inversion トグル（編集中のみ表示） =====
+   既存 UI 言語（編集中=Tonic 青、ピル基調）に合わせ、
+   ラベルは caption 級・ボタンはセグメント風グルーピングで
+   「同一アクションのバリアント選択」であることを示す。 */
+.inversion-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 4px 14px;
+  margin-bottom: 12px;
+  position: relative;
+}
+
+.inversion-toggle::after {
+  /* 区切りはハードラインでなく薄いグラデーションで呼吸感を出す */
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08) 20%,
+    rgba(255, 255, 255, 0.08) 80%,
+    transparent
+  );
+}
+
+.inversion-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.inversion-toggle-label::before {
+  /* キャプション横の小さなインジケータ。Tonic 青で「編集中文脈」を示唆 */
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--tonic);
+  box-shadow: 0 0 6px var(--tonic-glow);
+}
+
+.inversion-toggle-buttons {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  /* セグメントコントロール風の外殻 */
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-pill);
+}
+
+.inversion-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  padding: 7px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.12s ease;
+  font-family: inherit;
+  text-align: center;
+  letter-spacing: 0.02em;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.inversion-btn:hover:not(.disabled):not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+.inversion-btn:active:not(.disabled):not(:disabled) {
+  transform: scale(0.97);
+}
+
+.inversion-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--bg-primary),
+    0 0 0 4px var(--tonic-border);
+}
+
+.inversion-btn.active {
+  /* 編集中=Tonic 青の既存メンタルモデルを継承。
+     セグメント内の「現在選択中」を実体感のあるフィルで示す */
+  background: var(--tonic-bg);
+  border-color: var(--tonic-border);
+  color: var(--tonic);
+  box-shadow:
+    inset 0 0 0 1px var(--tonic-border),
+    0 0 10px var(--tonic-glow);
+}
+
+.inversion-btn.active:hover:not(.disabled):not(:disabled) {
+  background: var(--tonic-bg);
+  color: var(--tonic);
+}
+
+.inversion-btn.disabled,
+.inversion-btn:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+  /* 機能的に押せない状態を質感でも伝える */
+  color: var(--text-muted);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0,
+      transparent 4px,
+      rgba(255, 255, 255, 0.025) 4px,
+      rgba(255, 255, 255, 0.025) 5px
+    );
+}
+
+/* オンコード適用中：転回不可をロックバッジ＋抑制トーンで明示 */
+.inversion-toggle.on-chord-locked .inversion-toggle-label {
+  color: var(--text-muted);
+}
+
+.inversion-toggle.on-chord-locked .inversion-toggle-label::before {
+  background: var(--text-muted);
+  box-shadow: none;
+}
+
+.inversion-toggle-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-pill);
+  padding: 4px 10px 4px 8px;
+  letter-spacing: 0.02em;
+}
+
+.inversion-toggle-hint::before {
+  /* ロック中を示すミニマルなドット2連（U+22EE/U+2014 等の絵文字に頼らずCSSで完結） */
+  content: "";
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, currentColor 0 1.2px, transparent 1.8px),
+    radial-gradient(circle at 50% 50%, transparent 0 3px, currentColor 3px 3.6px, transparent 4px);
+  opacity: 0.7;
 }
 
 .selector-expanded-content::-webkit-scrollbar { width: 4px; }

@@ -22,11 +22,16 @@ import {
   installAudioLifecycleHandlers,
   setAudioInterruptedCallback,
   getAudioContextState,
+  setPlaybackInstrument,
+  type DrumPattern,
 } from "./utils/audioEngine";
+import { resetVoicingState } from "./utils/voicing";
+import type { InstrumentId } from "./utils/instrumentPresets";
 import { loadPersistedState, savePersistedState } from "./utils/storage";
 import { exportProgressionVideo, isVideoExportSupported } from "./utils/videoExporter";
 import { shareVideoFile, buildShareText } from "./utils/shareVideo";
 import { copyTextToClipboard } from "./utils/clipboard";
+import { trackEvent } from "./utils/analytics";
 
 const ChordDurationOptions = ["1", "1/2", "1/4"] as const;
 
@@ -85,7 +90,7 @@ function App() {
   );
   const [activeTab, setActiveTab] = useState<"diatonic" | "non-diatonic" | "on-chord">("diatonic");
   const [bpm, setBpm] = useState<number>(() => getInitialState()?.bpm ?? 100);
-  const [drumPattern, setDrumPattern] = useState<"none" | "4beat" | "8beat" | "16beat">(
+  const [drumPattern, setDrumPattern] = useState<DrumPattern>(
     () => getInitialState()?.drumPattern ?? "none"
   );
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -97,6 +102,9 @@ function App() {
   const [history, setHistory] = useState<PaletteChord[][]>([]);
   const [chordDurationMode, setChordDurationMode] = useState<"1" | "1/2" | "1/4">(
     () => getInitialState()?.chordDurationMode ?? "1"
+  );
+  const [instrumentId, setInstrumentId] = useState<InstrumentId>(
+    () => getInitialState()?.instrumentId ?? "rush"
   );
   const [audioToast, setAudioToast] = useState<string | null>(null);
   const [isExportingVideo, setIsExportingVideo] = useState(false);
@@ -119,8 +127,36 @@ function App() {
       drumPattern,
       chordDurationMode,
       isLooping,
+      instrumentId,
     });
-  }, [selectedKey, palette, bpm, drumPattern, chordDurationMode, isLooping]);
+  }, [selectedKey, palette, bpm, drumPattern, chordDurationMode, isLooping, instrumentId]);
+
+  useEffect(() => {
+    setPlaybackInstrument(instrumentId);
+  }, [instrumentId]);
+
+  const handleInstrumentIdChange = useCallback(
+    (id: InstrumentId) => {
+      setInstrumentId(id);
+      setPlaybackInstrument(id);
+      trackEvent("tone_change", { tone: id });
+      if (isPlaying || isExportingVideo) return;
+      const previewChord =
+        editingIndex !== null && palette[editingIndex]
+          ? palette[editingIndex]
+          : palette.length > 0
+            ? palette[palette.length - 1]
+            : null;
+      if (previewChord) {
+        const beats = previewChord.beats || 2;
+        void playChord(previewChord, Math.min(0.55, (60 / bpm) * beats), undefined, {
+          instrumentId: id,
+          useVoiceLeading: false,
+        });
+      }
+    },
+    [palette, editingIndex, isPlaying, isExportingVideo, bpm]
+  );
 
   useEffect(() => {
     const cleanup = installAudioLifecycleHandlers();
@@ -140,9 +176,22 @@ function App() {
 
   const handleDiatonicClick = (chord: DiatonicChord, type: DiatonicChordType, key: Key) => {
     const beats = chordDurationMode === "1" ? 2 : chordDurationMode === "1/2" ? 1 : 0.5;
-    const paletteChord = diatonicToPalette(chord, type, key, beats);
+    let paletteChord = diatonicToPalette(chord, type, key, beats);
+
+    // 編集中: 既存コードの inversion を引き継ぐ（テトラッド↔トライアドで範囲を clamp）
+    if (editingIndex !== null && palette[editingIndex]) {
+      const prev = palette[editingIndex];
+      const maxInv: 0 | 1 | 2 | 3 =
+        paletteChord.intervals.length >= 4 ? 3 : paletteChord.intervals.length === 3 ? 2 : 0;
+      const carried = Math.min(prev.inversion ?? 0, maxInv) as 0 | 1 | 2 | 3;
+      paletteChord = { ...paletteChord, inversion: carried };
+    }
+
     const sustainSec = (60 / bpm) * beats;
-    void playChord(paletteChord, sustainSec);
+    void playChord(paletteChord, sustainSec, undefined, {
+      instrumentId,
+      useVoiceLeading: true,
+    });
 
     if (editingIndex !== null) {
       setPalette((prev) => {
@@ -153,15 +202,29 @@ function App() {
       setEditingIndex(null);
     } else {
       setPalette((prev) => [...prev, paletteChord]);
+      trackEvent("chord_add", { source: "diatonic" });
     }
     setAudioToast(null);
   };
 
   const handleNonDiatonicClick = (paletteChord: PaletteChord) => {
     const beats = chordDurationMode === "1" ? 2 : chordDurationMode === "1/2" ? 1 : 0.5;
-    const adjustedChord = { ...paletteChord, beats };
+    let adjustedChord: PaletteChord = { ...paletteChord, beats };
+
+    // 編集中: 既存コードの inversion を引き継ぐ
+    if (editingIndex !== null && palette[editingIndex]) {
+      const prev = palette[editingIndex];
+      const maxInv: 0 | 1 | 2 | 3 =
+        adjustedChord.intervals.length >= 4 ? 3 : adjustedChord.intervals.length === 3 ? 2 : 0;
+      const carried = Math.min(prev.inversion ?? 0, maxInv) as 0 | 1 | 2 | 3;
+      adjustedChord = { ...adjustedChord, inversion: carried };
+    }
+
     const sustainSec = (60 / bpm) * beats;
-    void playChord(adjustedChord, sustainSec);
+    void playChord(adjustedChord, sustainSec, undefined, {
+      instrumentId,
+      useVoiceLeading: true,
+    });
 
     if (editingIndex !== null) {
       setPalette((prev) => {
@@ -172,6 +235,7 @@ function App() {
       setEditingIndex(null);
     } else {
       setPalette((prev) => [...prev, adjustedChord]);
+      trackEvent("chord_add", { source: "non_diatonic" });
     }
     setAudioToast(null);
   };
@@ -192,6 +256,34 @@ function App() {
   const handleClear = () => {
     setPalette([]);
     setEditingIndex(null);
+    resetVoicingState();
+  };
+
+  const handleInversionChange = (index: number, inversion: 0 | 1 | 2 | 3) => {
+    if (index < 0 || index >= palette.length) return;
+    const target = palette[index];
+    // オンコードのときは転回を変更しない（仕様上競合）
+    if (target.bassNoteOverride !== undefined && target.bassNoteOverride !== null) return;
+    // トライアド時に 3rd は不可
+    const maxInv = target.intervals.length >= 4 ? 3 : target.intervals.length === 3 ? 2 : 0;
+    if (inversion > maxInv) return;
+
+    const updated: PaletteChord = { ...target, inversion };
+    setPalette((prev) => {
+      const next = [...prev];
+      next[index] = updated;
+      return next;
+    });
+
+    // 単音プレビュー（タップ時に転回を反映）
+    if (!isPlaying && !isExportingVideo) {
+      const beats = updated.beats || 2;
+      const sustainSec = Math.min(0.55, (60 / bpm) * beats);
+      void playChord(updated, sustainSec, undefined, {
+        instrumentId,
+        useVoiceLeading: false,
+      });
+    }
   };
 
   const handleBassChange = (bassNote: number, noteName: string) => {
@@ -210,7 +302,10 @@ function App() {
     setPalette(newPalette);
     const beats = target.beats || 2;
     const sustainSec = (60 / bpm) * beats;
-    void playChord(newPalette[targetIdx], sustainSec);
+    void playChord(newPalette[targetIdx], sustainSec, undefined, {
+      instrumentId,
+      useVoiceLeading: true,
+    });
   };
 
   const handlePlayAll = () => {
@@ -228,8 +323,10 @@ function App() {
       },
       (idx) => {
         setCurrentPlayingIndex(idx);
-      }
+      },
+      { instrumentId }
     );
+    trackEvent("play_sequence", { chords: palette.length, bpm });
   };
 
   const handleStop = () => {
@@ -281,6 +378,7 @@ function App() {
         selectedKey,
         bpm,
         drumPattern,
+        instrumentId,
         onTick: (idx) => setCurrentPlayingIndex(idx),
       });
 
@@ -290,6 +388,8 @@ function App() {
 
       try {
         const mode = await shareVideoFile(result.file, text);
+        trackEvent("video_export", { chords: palette.length, mode });
+        trackEvent("share_video", { mode });
         switch (mode) {
           case "shared":
             setAudioToast("共有シートを開きました");
@@ -327,7 +427,7 @@ function App() {
     } finally {
       setIsExportingVideo(false);
     }
-  }, [palette, selectedKey, bpm, drumPattern, isExportingVideo]);
+  }, [palette, selectedKey, bpm, drumPattern, instrumentId, isExportingVideo]);
 
   const progressionString = palette.map((c) => c.displayName).join(" - ");
 
@@ -370,6 +470,8 @@ function App() {
           onBpmChange={setBpm}
           drumPattern={drumPattern}
           onDrumPatternChange={setDrumPattern}
+          instrumentId={instrumentId}
+          onInstrumentIdChange={handleInstrumentIdChange}
           isPlaying={isPlaying}
           onRemove={handleRemove}
           onPlayAll={handlePlayAll}
@@ -408,6 +510,9 @@ function App() {
         onNonDiatonicClick={handleNonDiatonicClick}
         onBassSelect={handleBassChange}
         selectedKey={selectedKey}
+        editingChord={editingIndex !== null ? palette[editingIndex] ?? null : null}
+        editingIndex={editingIndex}
+        onInversionChange={handleInversionChange}
       />
 
       {showOnboarding && <OnboardingOverlay onDismiss={dismissOnboarding} />}
