@@ -130,10 +130,11 @@ body::before {
     );
   }
   /* Sprint 14 (v2.8.2): スマホでは workspace-palette の縦 padding をさらに圧縮し、
-     gap も詰めて palette-canvas が画面内に確実に収まるようにする。 */
+     gap も詰めて palette-canvas が画面内に確実に収まるようにする。
+     v2.9.x: 進行ピル行を再生バー直下に寄せるため gap を 5→3px に絞る（-2px）。 */
   .workspace-palette {
     padding: 8px 10px;
-    gap: 5px;
+    gap: 3px;
   }
 }
 
@@ -184,11 +185,12 @@ body::before {
   border-radius: var(--radius);
   /* Sprint 14 (v2.8.2): 縦のみ 12→10px に圧縮（左右は触らない）。
      gap は 4→6px に広げて playback-bar / palette-canvas / history の
-     視覚的区切りを保ちつつ、上下の余白の累積を 4px 減らす。 */
+     視覚的区切りを保ちつつ、上下の余白の累積を 4px 減らす。
+     v2.9.x: 進行ピル行を再生バー直下に寄せるため gap を 6→4px に絞る（-2px）。 */
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -617,7 +619,9 @@ body::before {
   justify-content: flex-start;
   background: rgba(0, 0, 0, 0.15);
   border-radius: var(--radius-sm);
-  padding: 12px 12px 14px;
+  /* v2.9.x: playback-bar との隙間を詰めるため padding-top のみ 12→10px に圧縮（-2px）。
+     下端と左右は据え置きで bottom-sheet との視覚的呼吸を維持。 */
+  padding: 10px 12px 14px;
   border: 1px solid rgba(255, 255, 255, 0.04);
   flex-shrink: 0;
   overflow-x: auto;
@@ -639,7 +643,8 @@ body::before {
 @media (max-width: 480px) {
   .palette-canvas {
     min-height: 60px;
-    padding: 10px 10px 12px;
+    /* v2.9.x: モバイルでも playback-bar との隙間を詰める（padding-top 10→8px） */
+    padding: 8px 10px 12px;
   }
   .palette-empty-canvas {
     min-height: 44px;
