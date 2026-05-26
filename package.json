@@ -1,7 +1,7 @@
 {
   "name": "chord-palette",
   "private": true,
-  "version": "2.8.2",
+  "version": "2.9.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,6 +14,7 @@
     "framer-motion": "^12.38.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "smplr": "^0.26.0",
     "tailwindcss": "^4.2.2"
   },
   "devDependencies": {

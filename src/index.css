@@ -299,6 +299,31 @@ body::before {
   white-space: nowrap;
 }
 
+/* v2.9 (Sprint 14): Rush サンプラーのロード状態インジケータ。
+   Tone ラベル内に小さく付加表示。ロード中は subtle pulse でユーザに伝える。 */
+.tone-loading-indicator {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  opacity: 0.85;
+  animation: tone-loading-pulse 1.4s ease-in-out infinite;
+}
+
+.tone-loading-indicator--error {
+  color: #ef4444;
+  animation: none;
+  opacity: 1;
+}
+
+@keyframes tone-loading-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
 .bpm-number-input,
 .drum-select {
   padding: 0 8px;

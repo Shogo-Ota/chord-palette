@@ -1,3 +1,74 @@
+# Chord Palette v2.9（Rush 音色のサンプル化：ハイブリッド方式）
+
+## 概要（v2.9）
+
+v2.8 までで「ピアノ音色 3 種 × 5 ジャンルドラム × 転回形 × Beat 軸独立化 × 動画書き出し × モバイル UI」が
+ほぼ完成形に達した。v2.9 ではユーザー体験の中心である **デフォルト音色 Rush だけ** を
+**実サンプル音源（smplr 経由）** に置き換え、「Web Audio 合成では到達しがたい “本物の Steinway 感”」を獲得する。
+
+**Synth El. Piano / Upright は現行合成のまま維持する** ことで、3 音色のキャラ差別化と既存挙動を守る。
+
+### 採用技術（調査レポート確定）
+
+| 項目 | 採用 |
+|---|---|
+| ライブラリ | [`smplr`](https://github.com/danigb/smplr) v0.26.0（MIT、外部依存ゼロ、gzip +23 kB 程度） |
+| サンプルセット | **SplendidGrandPiano**（パブリックドメイン Steinway、AKAI 配布、Attribution 不要） |
+| 配信元 | `https://smpldsnds.github.io/sfzinstruments-SplendidGrandPiano/`（Vercel バンドルに乗らない CDN 配信） |
+| 適用範囲 | **Rush のみ**。Synth El. Piano / Upright は従来通り Web Audio 合成 |
+| AudioContext | 既存 `audioContext` / `masterGain` / `limiter` / `reverb` を流用。Tone.js のような Context 置換は禁止 |
+
+### 二本柱
+
+1. **Rush サンプラー化（ハイブリッド方式）**
+   - `smplr` の `Sampler` を **遅延ロード**（Rush が選ばれた瞬間 or Rush で初回タップした瞬間）
+   - サンプラー出力ノードを既存マスターチェーン（80Hz HPF + 5kHz shelf + reverbSend → limiter）に接続
+   - ロード未完了時は **既存合成版 Rush で代替再生**（無音回避）
+   - 2 回目以降は **Cache Storage** 経由で即時利用（smplr デフォルト挙動）
+
+2. **動画書き出し・ライフサイクル統合**
+   - `videoExporter.ts` は書き出し開始前に `await sampler.loaded` を実行
+   - 書き出し中の Tone セレクタ disabled（Sprint 9 で実装済み）を維持
+   - iOS Safari の AudioContext resume / suspend / interruption に影響を与えない
+
+### v2.9 機能一覧
+
+| 優先度 | 機能 | スプリント |
+|---|---|---|
+| 高 | `smplr` を `package.json` の dependencies に追加 | Sprint 14 |
+| 高 | `instrumentPresets.ts`（または専用モジュール）に Rush サンプラー初期化 + 再生分岐 | Sprint 14 |
+| 高 | `audioEngine.ts` の `playChord` / `playPaletteSequence` が Rush 時に sampler 経由で発音 | Sprint 14 |
+| 高 | サンプル未ロード時の **合成版 Rush フォールバック**（無音禁止） | Sprint 14 |
+| 高 | `videoExporter.ts` で書き出し開始前に `await sampler.loaded` | Sprint 14 |
+| 高 | ロード中インジケータ UI（Tone セレクタ / playback-bar 近辺） | Sprint 14 |
+| 中 | sound-critic 用 試聴チェックリスト（3 音色 × 進行 3 パターン） | Sprint 14 |
+
+### v2.9 で守る制約
+
+- 既存の v2.8.2 機能（転回形 / 5 ジャンルドラム / Beat 軸独立化 / 3 音色 / 動画書き出し / モバイル UI）にリグレッションを出さない
+- 375px モバイル最優先、iOS Safari の AudioContext lifecycle 維持
+- 既存の Rush 合成コード（`pleasantAcoustics` / `INSTRUMENT_PRESETS.rush`）は **削除せず残す**（フォールバック用）
+- `localStorage` の `instrumentId` 値・形式は不変
+- Synth El. Piano / Upright は完全に従来挙動を維持（音量バランス・聴感に変化なし）
+- マスターチェーン構成（80Hz HPF + 5kHz shelf + reverbSend → limiter → masterGain）に変更を加えない
+- 進行横断 voice-leading（Sprint 8）・転回形（Sprint 10）は MIDI 値レベルで動作するためサンプル化しても挙動維持
+- 動画書き出し時に Rush サンプル音が `MediaStreamAudioDestinationNode` に正しく乗ること
+- gzip 後の JS バンドルサイズ増分は **smplr +23 kB の目安**を超えない（合計 145 kB 上限）
+
+### 既存制約の緩和（v2.5 / v2.6 / v2.7 から変更）
+
+v2.5 / v2.6 / v2.7 で明記していた制約：
+
+> 「サンプル音源・サンプル WAV / SoundFont / 外部音声 npm パッケージは追加しない（Web Audio API 合成のみ）」
+
+これを v2.9 で以下のように緩和する：
+
+> **「デフォルト音色（Rush）のみ smplr 経由でサンプル音源を採用可。Synth El. Piano / Upright は Web Audio 合成のままとする。Tone.js のような AudioContext を置き換える系のフレームワークは引き続き追加しない。」**
+
+この緩和は **Rush 音色 1 種に限定**され、Synth El. Piano / Upright・ドラム合成・マスターチェーン構造には適用しない。
+
+---
+
 # Chord Palette v2.7（ドラム強化：808 系合成 + 5 ジャンルパターン）
 
 ## 概要（v2.7）

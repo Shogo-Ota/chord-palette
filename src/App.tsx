@@ -23,10 +23,16 @@ import {
   setAudioInterruptedCallback,
   getAudioContextState,
   setPlaybackInstrument,
+  triggerRushSamplerLoad,
   type BeatPattern,
   type DrumPattern,
 } from "./utils/audioEngine";
 import { resetVoicingState } from "./utils/voicing";
+import {
+  getRushSamplerState,
+  onRushSamplerStateChange,
+  type RushSamplerState,
+} from "./utils/rushSampler";
 import type { InstrumentId } from "./utils/instrumentPresets";
 import { loadPersistedState, savePersistedState } from "./utils/storage";
 import { exportProgressionVideo, isVideoExportSupported } from "./utils/videoExporter";
@@ -112,6 +118,10 @@ function App() {
   );
   const [audioToast, setAudioToast] = useState<string | null>(null);
   const [isExportingVideo, setIsExportingVideo] = useState(false);
+  // v2.9 (Sprint 14): Rush サンプラーのロード状態。UI のロード中インジケータに使う。
+  const [rushSamplerState, setRushSamplerState] = useState<RushSamplerState>(
+    () => getRushSamplerState()
+  );
 
   const { showOnboarding, dismissOnboarding } = useOnboarding();
 
@@ -138,6 +148,24 @@ function App() {
 
   useEffect(() => {
     setPlaybackInstrument(instrumentId);
+  }, [instrumentId]);
+
+  // v2.9 (Sprint 14): Rush サンプラーのロード状態を購読
+  useEffect(() => {
+    const unsubscribe = onRushSamplerStateChange((state) => {
+      setRushSamplerState(state);
+    });
+    // 初回マウント時の現在 state を取り込む（ストレージ復元時に "ready" の場合に備えて）
+    setRushSamplerState(getRushSamplerState());
+    return unsubscribe;
+  }, []);
+
+  // v2.9 (Sprint 14): Rush 選択時のみサンプラーロードをトリガする。
+  // Synth EP / Upright 選択中は CDN 通信を一切発生させない（契約条件）。
+  useEffect(() => {
+    if (instrumentId !== "rush") return;
+    // fire-and-forget; ensureRushSamplerLoaded は Singleton なので何度呼んでも安全
+    void triggerRushSamplerLoad();
   }, [instrumentId]);
 
   const handleInstrumentIdChange = useCallback(
@@ -480,6 +508,7 @@ function App() {
           onBeatPatternChange={setBeatPattern}
           instrumentId={instrumentId}
           onInstrumentIdChange={handleInstrumentIdChange}
+          rushSamplerState={rushSamplerState}
           isPlaying={isPlaying}
           onRemove={handleRemove}
           onPlayAll={handlePlayAll}

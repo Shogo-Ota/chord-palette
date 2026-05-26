@@ -12,10 +12,12 @@ import type { Key, PaletteChord } from "./musicTheory";
 import type { InstrumentId } from "./instrumentPresets";
 import {
   attachCaptureDestination,
+  awaitRushSamplerIfLoading,
   detachCaptureDestination,
   setExportingVideo,
   playPaletteSequence,
   stopPaletteSequence,
+  triggerRushSamplerLoad,
   type BeatPattern,
   type DrumPattern,
 } from "./audioEngine";
@@ -122,6 +124,19 @@ export async function exportProgressionVideo(
   const clippedPalette = clipPaletteToMaxBars(options.palette, MAX_BARS);
   if (clippedPalette.length === 0) {
     throw new Error("書き出すコードがありません");
+  }
+
+  // v2.9 (Sprint 14): Rush 選択時はサンプラーのロード完了を待ってから書き出しを開始する。
+  // 未起動なら trigger してから await。失敗時 (state === "error") は合成版で書き出し続行（無音禁止）。
+  if (options.instrumentId === "rush") {
+    try {
+      // 何度呼んでも Singleton なので安全。Rush 選択直後に書き出しボタンを押すケースをカバー。
+      void triggerRushSamplerLoad();
+      await awaitRushSamplerIfLoading();
+    } catch (err) {
+      // awaitRushSamplerIfLoading は本来 reject しないが、防御的に catch
+      console.warn("[videoExporter] Rush sampler load wait failed; continuing with synth", err);
+    }
   }
 
   // Canvas を準備（off-DOM）

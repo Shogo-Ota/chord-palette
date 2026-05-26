@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import type { PaletteChord } from "../utils/musicTheory";
 import { INSTRUMENT_IDS, INSTRUMENT_PRESETS, type InstrumentId } from "../utils/instrumentPresets";
 import type { BeatPattern, DrumPattern } from "../utils/audioEngine";
+import type { RushSamplerState } from "../utils/rushSampler";
 
 interface CompositionPaletteProps {
   palette: PaletteChord[];
@@ -13,6 +14,8 @@ interface CompositionPaletteProps {
   onBeatPatternChange: (pattern: BeatPattern) => void;
   instrumentId: InstrumentId;
   onInstrumentIdChange: (id: InstrumentId) => void;
+  /** v2.9 (Sprint 14): Rush サンプラーのロード状態（Tone セレクタのインジケータ用） */
+  rushSamplerState?: RushSamplerState;
   isPlaying: boolean;
   onRemove: (index: number) => void;
   onPlayAll: () => void;
@@ -49,6 +52,7 @@ export default function CompositionPalette({
   onBeatPatternChange,
   instrumentId,
   onInstrumentIdChange,
+  rushSamplerState = "idle",
   isPlaying,
   onRemove,
   onPlayAll,
@@ -165,7 +169,29 @@ export default function CompositionPalette({
             </select>
           </div>
           <div className="playback-item">
-            <label className="playback-label" htmlFor="tone-select">Tone</label>
+            <label className="playback-label" htmlFor="tone-select">
+              Tone
+              {/* v2.9 (Sprint 14): Rush サンプラーのロード状態を表示。
+                  Rush 選択中かつロード中／エラーのときのみ表示。 */}
+              {instrumentId === "rush" && rushSamplerState === "loading" && (
+                <span
+                  className="tone-loading-indicator"
+                  aria-live="polite"
+                  title="サンプル音源を読み込み中..."
+                >
+                  loading...
+                </span>
+              )}
+              {instrumentId === "rush" && rushSamplerState === "error" && (
+                <span
+                  className="tone-loading-indicator tone-loading-indicator--error"
+                  aria-live="polite"
+                  title="サンプル読み込みに失敗（合成版で再生中）"
+                >
+                  synth
+                </span>
+              )}
+            </label>
             <select
               id="tone-select"
               className="tone-select drum-select"

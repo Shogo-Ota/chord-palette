@@ -32,6 +32,14 @@ import {
   type PleasantReverbBus,
 } from "./pleasantAcoustics";
 import { resetVoicingState, voiceChordForPlayback } from "./voicing";
+import {
+  disposeRushSampler,
+  ensureRushSamplerLoaded,
+  getRushSamplerLoadPromise,
+  isRushSamplerReady,
+  scheduleRushSample,
+  stopAllRushSamples,
+} from "./rushSampler";
 
 let audioContext: AudioContext | null = null;
 let masterGain: GainNode | null = null;
@@ -41,6 +49,14 @@ let limiter: DynamicsCompressorNode | null = null;
 let masterTrebleShelf: BiquadFilterNode | null = null;
 let masterCleanupHighpass: BiquadFilterNode | null = null;
 let pleasantReverb: PleasantReverbBus | null = null;
+
+// v2.9 (Sprint 14): Rush サンプラー専用の出力ノード。
+// SplendidGrandPiano の destination として渡し、ここから dry（masterGain）と
+// reverb send（pleasantReverb.input）の両方に分岐する。
+// これにより既存マスターチェーン（trebleShelf → cleanupHPF → limiter）と
+// 共有リバーブを Rush サンプル音も完全に通過する。
+let rushSamplerOutput: GainNode | null = null;
+let rushSamplerReverbSend: GainNode | null = null;
 
 const activeNodes: StoppableNode[] = [];
 
@@ -128,9 +144,55 @@ function getAudioContext(): AudioContext {
     // reverb wet も masterGain 経由で trebleShelf / cleanupHPF を通過する
     pleasantReverb.wet.connect(masterGain);
 
+    // v2.9 (Sprint 14): Rush サンプラー専用の出力ノードを構築する。
+    // SplendidGrandPiano からの音は rushSamplerOutput に入り、
+    //   - dry: masterGain（→ trebleShelf → cleanupHPF → limiter）
+    //   - wet: rushSamplerReverbSend → pleasantReverb.input
+    // の 2 系統に分岐する。Rush 合成版の reverbSend (0.28) と同等の量を採用。
+    rushSamplerOutput = audioContext.createGain();
+    rushSamplerOutput.gain.setValueAtTime(1.0, audioContext.currentTime);
+    rushSamplerOutput.connect(masterGain);
+
+    rushSamplerReverbSend = audioContext.createGain();
+    rushSamplerReverbSend.gain.setValueAtTime(0.28, audioContext.currentTime);
+    rushSamplerOutput.connect(rushSamplerReverbSend);
+    rushSamplerReverbSend.connect(pleasantReverb.input);
+
     audioContext.addEventListener("statechange", handleContextStateChange);
   }
   return audioContext;
+}
+
+/**
+ * Rush サンプラーの destination を取得する（rushSampler.ts への DI 用）。
+ * AudioContext が未初期化なら初期化してから返す。
+ */
+export function getRushSamplerDestination(): { ctx: AudioContext; destination: GainNode } {
+  const ctx = getAudioContext();
+  if (!rushSamplerOutput) {
+    // getAudioContext 内で初期化済みのはず。万一のフォールバック。
+    rushSamplerOutput = ctx.createGain();
+    rushSamplerOutput.gain.setValueAtTime(1.0, ctx.currentTime);
+    if (masterGain) rushSamplerOutput.connect(masterGain);
+  }
+  return { ctx, destination: rushSamplerOutput };
+}
+
+/**
+ * Rush サンプラーのロードを起動する（fire-and-forget）。
+ * Rush 選択時のみ呼ぶこと。Synth EP / Upright 時に呼ぶとネットワーク負荷が無駄になる。
+ *
+ * @returns ロード Promise（既に ready / error なら即 resolve）
+ */
+export function triggerRushSamplerLoad(): Promise<void> {
+  const { ctx, destination } = getRushSamplerDestination();
+  return ensureRushSamplerLoaded(ctx, destination);
+}
+
+/** videoExporter 用: ロードが進行中なら完了まで待つ。未起動 / 完了済みなら即 resolve。 */
+export async function awaitRushSamplerIfLoading(): Promise<void> {
+  const p = getRushSamplerLoadPromise();
+  if (p) await p;
 }
 
 function handleContextStateChange() {
@@ -214,6 +276,18 @@ export async function playChord(
   const notes = voiceChordForPlayback(chord, { useVoiceLeading });
   const bassMidi = Math.min(...notes);
   const gainScale = 1 / Math.sqrt(notes.length);
+
+  // v2.9 (Sprint 14): Rush 選択 + サンプラー ready のとき、サンプル発音に切り替える。
+  // ready でないときは既存合成版にフォールバック（無音禁止）。
+  if (instrumentId === "rush" && isRushSamplerReady()) {
+    // SplendidGrandPiano は MIDI ノート番号と velocity（0–127）で発音。
+    // 合成版と同等の音量感になるよう velocity を控えめに設定（リミッターを叩きすぎない）。
+    const velocity = Math.max(40, Math.min(110, Math.round(90 * gainScale + 50)));
+    notes.forEach((note) => {
+      scheduleRushSample(note, now, durationSec, velocity);
+    });
+    return;
+  }
 
   const reverbInput = pleasantReverb?.input ?? null;
 
@@ -779,6 +853,9 @@ function stopPaletteSequenceInternal(notifyStop: boolean) {
     sequenceTimerId = null;
   }
   stopAllActiveNodes();
+  // v2.9 (Sprint 14): Rush サンプラーで発音中の音もスケジュール上で停止する。
+  // ready 状態でなければ no-op。
+  stopAllRushSamples();
   resetVoicingState();
   if (notifyStop && sequenceOnStop) {
     sequenceOnStop();
@@ -854,6 +931,8 @@ export function resetAudioEngine(): void {
   cleanupCapture();
   stopPaletteSequenceInternal(false);
   stopAllActiveNodes();
+  // v2.9 (Sprint 14): Rush サンプラーを破棄し、AudioContext 閉鎖後に dangling 参照を残さない
+  disposeRushSampler();
   resetVoicingState();
   if (pleasantReverb) {
     pleasantReverb.dispose();
@@ -868,5 +947,7 @@ export function resetAudioEngine(): void {
     limiter = null;
     masterTrebleShelf = null;
     masterCleanupHighpass = null;
+    rushSamplerOutput = null;
+    rushSamplerReverbSend = null;
   }
 }
