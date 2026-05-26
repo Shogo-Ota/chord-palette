@@ -32,6 +32,13 @@ const INVERSION_LABELS: { value: 0 | 1 | 2 | 3; label: string }[] = [
   { value: 3, label: "3rd" },
 ];
 
+/**
+ * Sprint 6 回収: シートの折りたたみ高さ。
+ * `src/index.css` の `--bottom-sheet-collapsed` と必ず一致させること。
+ * （workspace の padding-bottom / max-height 計算でこの値を使うため）
+ */
+export const SHEET_COLLAPSED_PX = 88;
+
 export default function ChordSelectorSheet({
   activeTab,
   onTabChange,
@@ -69,8 +76,9 @@ export default function ChordSelectorSheet({
       className={`chord-selector-sheet ${isExpanded ? "expanded" : ""}`}
       initial={false}
       animate={{
-        height: isExpanded ? "auto" : "88px",
-        maxHeight: isExpanded ? "60vh" : "88px",
+        // SHEET_COLLAPSED_PX は CSS の --bottom-sheet-collapsed と同期
+        height: isExpanded ? "auto" : `${SHEET_COLLAPSED_PX}px`,
+        maxHeight: isExpanded ? "60vh" : `${SHEET_COLLAPSED_PX}px`,
       }}
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
     >

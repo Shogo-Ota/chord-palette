@@ -31,6 +31,11 @@
   --radius: 16px;
   --radius-sm: 10px;
   --radius-pill: 50px;
+
+  /* Sprint 6 回収: bottom sheet のレイヤー計算用。
+     ChordSelectorSheet.tsx の SHEET_COLLAPSED_PX と必ず一致させる。 */
+  --bottom-sheet-collapsed: 88px;
+  --bottom-sheet-gap: 12px;
 }
 
 /* ===== Base Reset ===== */
@@ -91,22 +96,35 @@ body::before {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  /* Sprint 6: 左右は safe-area を取り込み、下は bottom-sheet (88px) +
-   * ホームインジケータ (safe-area-inset-bottom) ぶんを確保 */
+  /* Sprint 6 回収: 左右は safe-area を取り込み、下は bottom-sheet（折りたたみ高）+
+   * gap + ホームインジケータ（safe-area-inset-bottom）を CSS 変数で動的算出。
+   * これでシートが進行ピル行に被らない。 */
   padding-top: 4px;
   padding-right: max(16px, env(safe-area-inset-right, 16px));
-  padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(
+    var(--bottom-sheet-collapsed) +
+    var(--bottom-sheet-gap) +
+    env(safe-area-inset-bottom, 0px)
+  );
   padding-left: max(16px, env(safe-area-inset-left, 16px));
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
-  overflow: hidden;
+  /* 縦が足りない端末（iPhone SE 等）でパレット全体をスクロール可能に */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 @media (max-width: 480px) {
   .workspace-center {
     padding-right: max(10px, env(safe-area-inset-right, 10px));
     padding-left: max(10px, env(safe-area-inset-left, 10px));
+    /* 狭幅端末ではシートとの余白をやや広げる */
+    padding-bottom: calc(
+      var(--bottom-sheet-collapsed) +
+      16px +
+      env(safe-area-inset-bottom, 0px)
+    );
   }
 }
 
@@ -134,7 +152,20 @@ body::before {
 .workspace-palette {
   width: 100%;
   max-width: 600px;
-  max-height: 85vh;
+  /* Sprint 6 回収: ヘッダー（約 72px）と bottom-sheet 折りたたみ高を引いて
+     パレット全体が画面に収まる max-height にする。これで進行ピル行が
+     ボトムシートの角丸に視覚的に被らない。 */
+  max-height: min(
+    85vh,
+    calc(
+      100dvh
+      - 72px
+      - var(--bottom-sheet-collapsed)
+      - var(--bottom-sheet-gap)
+      - env(safe-area-inset-top, 0px)
+      - env(safe-area-inset-bottom, 0px)
+    )
+  );
   background: var(--bg-glass);
   backdrop-filter: blur(16px);
   border: 1px solid var(--border-glass);
@@ -535,10 +566,13 @@ body::before {
   justify-content: flex-start;
   background: rgba(0, 0, 0, 0.15);
   border-radius: var(--radius-sm);
-  padding: 16px 12px 12px;
+  /* Sprint 6 回収: 進行ピル行とパレット下端の呼吸を確保し、
+     bottom-sheet と視覚的に被らないようにする。 */
+  padding: 16px 12px 16px;
   border: 1px solid rgba(255, 255, 255, 0.04);
   flex-shrink: 0;
   overflow-x: auto;
+  scroll-padding-bottom: 8px;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
@@ -943,8 +977,11 @@ body::before {
 }
 
 .selector-expanded-content {
-  padding: 0 16px 16px;
-  max-height: calc(60vh - 60px);
+  /* Sprint 6 回収: 横は据え置き、縦は safe-area-inset-bottom を明示加算して
+     ホームインジケータと干渉しない。 */
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  /* dvh ベースで「ヘッダー + シートヘッダー + 余白」を引いた高さに収まる */
+  max-height: min(60vh, calc(100dvh - 200px));
   overflow-y: auto;
 }
 
@@ -1536,7 +1573,8 @@ body::before {
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  /* Sprint 6 回収: グリッドとバリエーションツールバーの間隔を 12px に拡大 */
+  gap: 12px;
 }
 
 .chord-grid {
@@ -1544,6 +1582,8 @@ body::before {
   grid-template-columns: repeat(8, 1fr);
   gap: 6px;
   grid-auto-rows: 1fr;
+  /* Sprint 6 回収: 最下段カードとバリエーションツールバーの呼吸を確保 */
+  padding-bottom: 4px;
 }
 
 .chord-card {
@@ -1646,8 +1686,8 @@ body::before {
 }
 
 .chord-variation-toolbar {
-  position: sticky;
-  bottom: 0;
+  /* Sprint 6 回収: position:sticky を廃止し、通常フローでグリッドの下に並べる。
+     これでコードカード（V/vi/vii°）の上に重ならない。 */
   background: rgba(10, 10, 26, 0.95);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-sm);
@@ -1655,7 +1695,7 @@ body::before {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  z-index: 5;
+  flex-shrink: 0;
 }
 
 .chord-variation-toolbar.disabled {
