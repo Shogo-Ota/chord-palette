@@ -181,11 +181,28 @@ export default function CheckoutSuccess() {
               </button>
             </div>
 
-            <p className="checkout-success-hint checkout-success-hint--warn">
-              ⚠️ このキーはこの画面でしか表示されません。必ずコピー or スクリーンショットで保管してください。
-              <br />
-              紛失時は再購入になります（メールでの再送機能は現時点で提供していません）。
-            </p>
+            <ul className="checkout-success-notes">
+              <li>
+                <span className="checkout-success-notes-icon" aria-hidden="true">🔑</span>
+                <div>
+                  <strong>ライセンスキー:</strong>{" "}
+                  購入直後のこの画面でしか表示されません。コピーして大切に保管してください。
+                </div>
+              </li>
+              <li>
+                <span className="checkout-success-notes-icon" aria-hidden="true">🔄</span>
+                <div>
+                  <strong>別の端末・ブラウザで使うとき:</strong>{" "}
+                  アプリ右下の 🔒 ボタン → 「キーを持っている」タブから入力すれば即有効化されます。
+                </div>
+              </li>
+              <li>
+                <span className="checkout-success-notes-icon" aria-hidden="true">⚠️</span>
+                <div>
+                  <strong>キー紛失時の再発行はサポート未対応です。</strong>
+                </div>
+              </li>
+            </ul>
 
             <a
               href={activateUrl}

@@ -3540,6 +3540,58 @@ body::before {
   line-height: 1.55;
 }
 
+/* v3.0.2: ライセンスキー周辺の運用ガイド 3 行 */
+.checkout-success-notes {
+  list-style: none;
+  margin: 8px 0 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.checkout-success-notes li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 3px solid rgba(251, 191, 36, 0.5);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: rgba(220, 225, 240, 0.9);
+}
+
+.checkout-success-notes li:nth-child(2) {
+  border-left-color: rgba(59, 130, 246, 0.5);
+}
+
+.checkout-success-notes li:nth-child(3) {
+  border-left-color: rgba(239, 68, 68, 0.5);
+}
+
+.checkout-success-notes-icon {
+  flex-shrink: 0;
+  width: 20px;
+  font-size: 15px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.checkout-success-notes strong {
+  color: rgba(240, 245, 255, 1);
+  font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .checkout-success-notes li {
+    padding: 8px 10px;
+    font-size: 11.5px;
+  }
+}
+
 .checkout-success-btn--primary {
   background: linear-gradient(135deg, #6366f1, #7c3aed, #8b5cf6);
   box-shadow: 0 6px 18px rgba(124, 58, 237, 0.4);
