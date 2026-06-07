@@ -37,7 +37,10 @@ import {
 } from "./utils/rushSampler";
 import type { InstrumentId } from "./utils/instrumentPresets";
 import { loadPersistedState, savePersistedState } from "./utils/storage";
-import { exportProgressionVideo, isVideoExportSupported } from "./utils/videoExporter";
+import {
+  exportProgressionVideo,
+  isVideoExportSupported,
+} from "./utils/videoExporter";
 import { shareVideoFile, buildShareText } from "./utils/shareVideo";
 import { copyTextToClipboard } from "./utils/clipboard";
 import { trackEvent } from "./utils/analytics";
@@ -58,10 +61,7 @@ function classifyToast(message: string): string {
   ) {
     return "toast-error";
   }
-  if (
-    message.includes("保存しました") ||
-    message.includes("開きました")
-  ) {
+  if (message.includes("保存しました") || message.includes("開きました")) {
     return "toast-success";
   }
   return "toast-info";
@@ -92,31 +92,35 @@ function getInitialState() {
 
 function App() {
   const [selectedKey, setSelectedKey] = useState<Key>(
-    () => getInitialState()?.selectedKey ?? "C"
+    () => getInitialState()?.selectedKey ?? "C",
   );
   const [palette, setPalette] = useState<PaletteChord[]>(
-    () => getInitialState()?.palette ?? []
+    () => getInitialState()?.palette ?? [],
   );
-  const [activeTab, setActiveTab] = useState<"diatonic" | "non-diatonic" | "on-chord">("diatonic");
+  const [activeTab, setActiveTab] = useState<
+    "diatonic" | "non-diatonic" | "on-chord"
+  >("diatonic");
   const [bpm, setBpm] = useState<number>(() => getInitialState()?.bpm ?? 100);
   const [drumPattern, setDrumPattern] = useState<DrumPattern>(
-    () => getInitialState()?.drumPattern ?? "none"
+    () => getInitialState()?.drumPattern ?? "none",
   );
   const [beatPattern, setBeatPattern] = useState<BeatPattern>(
-    () => getInitialState()?.beatPattern ?? "none"
+    () => getInitialState()?.beatPattern ?? "none",
   );
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isLooping, setIsLooping] = useState<boolean>(
-    () => getInitialState()?.isLooping ?? false
+    () => getInitialState()?.isLooping ?? false,
   );
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [currentPlayingIndex, setCurrentPlayingIndex] = useState<number | null>(null);
-  const [history, setHistory] = useState<PaletteChord[][]>([]);
-  const [chordDurationMode, setChordDurationMode] = useState<"1" | "1/2" | "1/4">(
-    () => getInitialState()?.chordDurationMode ?? "1"
+  const [currentPlayingIndex, setCurrentPlayingIndex] = useState<number | null>(
+    null,
   );
+  const [history, setHistory] = useState<PaletteChord[][]>([]);
+  const [chordDurationMode, setChordDurationMode] = useState<
+    "1" | "1/2" | "1/4"
+  >(() => getInitialState()?.chordDurationMode ?? "1");
   const [instrumentId, setInstrumentId] = useState<InstrumentId>(
-    () => getInitialState()?.instrumentId ?? "rush"
+    () => getInitialState()?.instrumentId ?? "piano",
   );
   const [audioToast, setAudioToast] = useState<string | null>(null);
   const [isExportingVideo, setIsExportingVideo] = useState(false);
@@ -126,7 +130,7 @@ function App() {
   const proLicense = useProLicense();
   // v2.9 (Sprint 14): Rush サンプラーのロード状態。UI のロード中インジケータに使う。
   const [rushSamplerState, setRushSamplerState] = useState<RushSamplerState>(
-    () => getRushSamplerState()
+    () => getRushSamplerState(),
   );
 
   const { showOnboarding, dismissOnboarding } = useOnboarding();
@@ -143,11 +147,20 @@ function App() {
     }
   }, []);
 
-  const diatonicChords = useMemo(() => getDiatonicChords(selectedKey), [selectedKey]);
-  const nonDiatonicChords = useMemo(() => getNonDiatonicChords(selectedKey), [selectedKey]);
+  const diatonicChords = useMemo(
+    () => getDiatonicChords(selectedKey),
+    [selectedKey],
+  );
+  const nonDiatonicChords = useMemo(
+    () => getNonDiatonicChords(selectedKey),
+    [selectedKey],
+  );
 
   const lastChord = palette.length > 0 ? palette[palette.length - 1] : null;
-  const recommendedIndices = useMemo(() => getRecommendedIndices(lastChord), [lastChord]);
+  const recommendedIndices = useMemo(
+    () => getRecommendedIndices(lastChord),
+    [lastChord],
+  );
 
   const hasExplainApi = import.meta.env.VITE_ENABLE_EXPLAIN === "true";
 
@@ -162,7 +175,16 @@ function App() {
       isLooping,
       instrumentId,
     });
-  }, [selectedKey, palette, bpm, drumPattern, beatPattern, chordDurationMode, isLooping, instrumentId]);
+  }, [
+    selectedKey,
+    palette,
+    bpm,
+    drumPattern,
+    beatPattern,
+    chordDurationMode,
+    isLooping,
+    instrumentId,
+  ]);
 
   useEffect(() => {
     setPlaybackInstrument(instrumentId);
@@ -178,10 +200,10 @@ function App() {
     return unsubscribe;
   }, []);
 
-  // v2.9 (Sprint 14): Rush 選択時のみサンプラーロードをトリガする。
-  // Synth EP / Upright 選択中は CDN 通信を一切発生させない（契約条件）。
+  // Piano 選択時のみサンプラーロードをトリガする。
+  // リリースカットピアノ / エレクトリックピアノ選択中は CDN 通信を発生させない。
   useEffect(() => {
-    if (instrumentId !== "rush") return;
+    if (instrumentId !== "piano") return;
     // fire-and-forget; ensureRushSamplerLoaded は Singleton なので何度呼んでも安全
     void triggerRushSamplerLoad();
   }, [instrumentId]);
@@ -200,13 +222,18 @@ function App() {
             : null;
       if (previewChord) {
         const beats = previewChord.beats || 2;
-        void playChord(previewChord, Math.min(0.55, (60 / bpm) * beats), undefined, {
-          instrumentId: id,
-          useVoiceLeading: false,
-        });
+        void playChord(
+          previewChord,
+          Math.min(0.55, (60 / bpm) * beats),
+          undefined,
+          {
+            instrumentId: id,
+            useVoiceLeading: false,
+          },
+        );
       }
     },
-    [palette, editingIndex, isPlaying, isExportingVideo, bpm]
+    [palette, editingIndex, isPlaying, isExportingVideo, bpm],
   );
 
   useEffect(() => {
@@ -225,15 +252,24 @@ function App() {
     };
   }, []);
 
-  const handleDiatonicClick = (chord: DiatonicChord, type: DiatonicChordType, key: Key) => {
-    const beats = chordDurationMode === "1" ? 2 : chordDurationMode === "1/2" ? 1 : 0.5;
+  const handleDiatonicClick = (
+    chord: DiatonicChord,
+    type: DiatonicChordType,
+    key: Key,
+  ) => {
+    const beats =
+      chordDurationMode === "1" ? 2 : chordDurationMode === "1/2" ? 1 : 0.5;
     let paletteChord = diatonicToPalette(chord, type, key, beats);
 
     // 編集中: 既存コードの inversion を引き継ぐ（テトラッド↔トライアドで範囲を clamp）
     if (editingIndex !== null && palette[editingIndex]) {
       const prev = palette[editingIndex];
       const maxInv: 0 | 1 | 2 | 3 =
-        paletteChord.intervals.length >= 4 ? 3 : paletteChord.intervals.length === 3 ? 2 : 0;
+        paletteChord.intervals.length >= 4
+          ? 3
+          : paletteChord.intervals.length === 3
+            ? 2
+            : 0;
       const carried = Math.min(prev.inversion ?? 0, maxInv) as 0 | 1 | 2 | 3;
       paletteChord = { ...paletteChord, inversion: carried };
     }
@@ -259,14 +295,19 @@ function App() {
   };
 
   const handleNonDiatonicClick = (paletteChord: PaletteChord) => {
-    const beats = chordDurationMode === "1" ? 2 : chordDurationMode === "1/2" ? 1 : 0.5;
+    const beats =
+      chordDurationMode === "1" ? 2 : chordDurationMode === "1/2" ? 1 : 0.5;
     let adjustedChord: PaletteChord = { ...paletteChord, beats };
 
     // 編集中: 既存コードの inversion を引き継ぐ
     if (editingIndex !== null && palette[editingIndex]) {
       const prev = palette[editingIndex];
       const maxInv: 0 | 1 | 2 | 3 =
-        adjustedChord.intervals.length >= 4 ? 3 : adjustedChord.intervals.length === 3 ? 2 : 0;
+        adjustedChord.intervals.length >= 4
+          ? 3
+          : adjustedChord.intervals.length === 3
+            ? 2
+            : 0;
       const carried = Math.min(prev.inversion ?? 0, maxInv) as 0 | 1 | 2 | 3;
       adjustedChord = { ...adjustedChord, inversion: carried };
     }
@@ -314,9 +355,14 @@ function App() {
     if (index < 0 || index >= palette.length) return;
     const target = palette[index];
     // オンコードのときは転回を変更しない（仕様上競合）
-    if (target.bassNoteOverride !== undefined && target.bassNoteOverride !== null) return;
+    if (
+      target.bassNoteOverride !== undefined &&
+      target.bassNoteOverride !== null
+    )
+      return;
     // トライアド時に 3rd は不可
-    const maxInv = target.intervals.length >= 4 ? 3 : target.intervals.length === 3 ? 2 : 0;
+    const maxInv =
+      target.intervals.length >= 4 ? 3 : target.intervals.length === 3 ? 2 : 0;
     if (inversion > maxInv) return;
 
     const updated: PaletteChord = { ...target, inversion };
@@ -375,7 +421,7 @@ function App() {
       (idx) => {
         setCurrentPlayingIndex(idx);
       },
-      { instrumentId, beatPattern }
+      { instrumentId, beatPattern },
     );
     trackEvent("play_sequence", { chords: palette.length, bpm });
   };
@@ -421,7 +467,7 @@ function App() {
       setAudioToast(
         ok
           ? "動画は作れませんでした。テキストだけコピーしました"
-          : "コピーに失敗しました"
+          : "コピーに失敗しました",
       );
       window.setTimeout(() => setAudioToast(null), 3500);
       return;
@@ -479,14 +525,25 @@ function App() {
       if (err instanceof Error && err.name === "AbortError") {
         setAudioToast(null);
       } else {
-        const msg = err instanceof Error ? err.message : "動画の作成に失敗しました";
-        setAudioToast(msg.includes("動画") ? msg : `動画の作成に失敗しました: ${msg}`);
+        const msg =
+          err instanceof Error ? err.message : "動画の作成に失敗しました";
+        setAudioToast(
+          msg.includes("動画") ? msg : `動画の作成に失敗しました: ${msg}`,
+        );
         window.setTimeout(() => setAudioToast(null), 3500);
       }
     } finally {
       setIsExportingVideo(false);
     }
-  }, [palette, selectedKey, bpm, drumPattern, beatPattern, instrumentId, isExportingVideo]);
+  }, [
+    palette,
+    selectedKey,
+    bpm,
+    drumPattern,
+    beatPattern,
+    instrumentId,
+    isExportingVideo,
+  ]);
 
   // Sprint 16: URL クエリ ?license= の取り込みが成功したらトーストで通知
   useEffect(() => {
@@ -511,9 +568,8 @@ function App() {
 
     try {
       // 動的 import: midiExporter は @tonejs/midi を遅延ロードする
-      const { exportPaletteToMidi, deliverMidiBlob } = await import(
-        "./utils/midiExporter"
-      );
+      const { exportPaletteToMidi, deliverMidiBlob } =
+        await import("./utils/midiExporter");
       const { blob, fileName } = await exportPaletteToMidi({
         palette,
         bpm,
@@ -527,7 +583,7 @@ function App() {
         setAudioToast(
           mode === "shared"
             ? "共有シートを開きました"
-            : "MIDI ファイルを保存しました"
+            : "MIDI ファイルを保存しました",
         );
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {
@@ -539,7 +595,8 @@ function App() {
       }
       window.setTimeout(() => setAudioToast(null), 3000);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "MIDI 書き出しに失敗しました";
+      const msg =
+        err instanceof Error ? err.message : "MIDI 書き出しに失敗しました";
       setAudioToast(msg);
       window.setTimeout(() => setAudioToast(null), 3500);
     } finally {
@@ -579,10 +636,20 @@ function App() {
       )}
 
       {audioToast && (
-        <div className={`audio-toast ${classifyToast(audioToast)}`} role="status">
-          <span className="audio-toast-icon" aria-hidden="true">{toastIcon(audioToast)}</span>
+        <div
+          className={`audio-toast ${classifyToast(audioToast)}`}
+          role="status"
+        >
+          <span className="audio-toast-icon" aria-hidden="true">
+            {toastIcon(audioToast)}
+          </span>
           <span className="audio-toast-text">{audioToast}</span>
-          <button type="button" className="audio-toast-close" onClick={() => setAudioToast(null)} aria-label="閉じる">
+          <button
+            type="button"
+            className="audio-toast-close"
+            onClick={() => setAudioToast(null)}
+            aria-label="閉じる"
+          >
             ✕
           </button>
         </div>
@@ -611,7 +678,9 @@ function App() {
           onAppendFromHistory={handleAppendFromHistory}
           onRemoveFromHistory={handleRemoveFromHistory}
           editingIndex={editingIndex}
-          onEditingIndexChange={(idx) => setEditingIndex((prev) => (prev === idx ? null : idx))}
+          onEditingIndexChange={(idx) =>
+            setEditingIndex((prev) => (prev === idx ? null : idx))
+          }
           currentPlayingIndex={currentPlayingIndex}
           chordDurationMode={chordDurationMode}
           onToggleDurationMode={() => {
@@ -643,7 +712,9 @@ function App() {
         onNonDiatonicClick={handleNonDiatonicClick}
         onBassSelect={handleBassChange}
         selectedKey={selectedKey}
-        editingChord={editingIndex !== null ? palette[editingIndex] ?? null : null}
+        editingChord={
+          editingIndex !== null ? (palette[editingIndex] ?? null) : null
+        }
         editingIndex={editingIndex}
         onInversionChange={handleInversionChange}
       />

@@ -5,7 +5,7 @@ import {
   getSoftClipCurve,
 } from "./pleasantAcoustics";
 
-export type InstrumentId = "rush" | "senseEp" | "upright";
+export type InstrumentId = "piano" | "releaseCut" | "electricPiano";
 
 export type FilterMode = "lowpass" | "bandpass";
 
@@ -43,7 +43,7 @@ export interface InstrumentPreset {
 
 function naturalHarmonicOscillators(
   maxPartial: number,
-  scale = 1
+  scale = 1,
 ): OscillatorSpec[] {
   const specs: OscillatorSpec[] = [];
   for (let i = 0; i <= maxPartial; i++) {
@@ -58,45 +58,56 @@ function naturalHarmonicOscillators(
 }
 
 /**
- * v2.6 で再チューニングした 3 プリセット。
- * 目標: 200Hz〜4kHz にエネルギーを集中させ、最低 3 指標で値が異なるよう差別化する。
- *
- * 差別化指標:
- *   filterCutoffTreble: 5800 (Rush) / 5000 (SenseElepix) / 3900 (Upright)
- *   attack:             0.008 (Rush) / 0.015 (SenseElepix) / 0.010 (Upright)
- *   decay:              0.14  (Rush) / 0.12  (SenseElepix) / 0.20  (Upright)
- *   release:            0.14  (Rush) / 0.12  (SenseElepix) / 0.18  (Upright)
- *   chorusDepth:        1.0   (Rush) / 0.5   (SenseElepix) / 0.4   (Upright)
- *   reverbSend:         0.28  (Rush) / 0.40  (SenseElepix) / 0.18  (Upright)
+ * 3 プリセット:
+ *   piano       — ピアノ（音質変更なし）: Steinway D サンプル + 合成フォールバック
+ *   releaseCut  — リリースカットピアノ: 合成のみ、release 0.04s でダンパー直下げ感
+ *   electricPiano — エレクトリックピアノ: Rhodes 風トレモロ付き合成
  */
 export const INSTRUMENT_PRESETS: Record<InstrumentId, InstrumentPreset> = {
-  rush: {
-    id: "rush",
-    label: "Piano",
-    description: "明るく前に出るポップピアノ（J-POP / シティポップ）",
-    // 2〜4 次倍音を厚めにし、ポップピアノらしいキャラクターを強調
+  piano: {
+    id: "piano",
+    label: "ピアノ（音質変更なし）",
+    description: "Steinway D サンプル使用のアコースティックピアノ",
     oscillators: naturalHarmonicOscillators(6, 0.15),
     filterMode: "lowpass",
-    filterCutoffBass: 780,
-    filterCutoffTreble: 5800,
-    filterQ: 0.55,
-    // 高域 shelf は共有マスターでも -4dB 入るので、ここは控えめに +3dB
-    trebleBrightnessDb: 3,
+    filterCutoffBass: 800,
+    filterCutoffTreble: 6000,
+    filterQ: 0.5,
+    trebleBrightnessDb: 0,
     attack: 0.008,
     decay: 0.14,
     sustain: 0.58,
     release: 0.14,
     gainMultiplier: 1.1,
     bassGainRatio: 1.18,
-    chorusDepth: 1,
+    chorusDepth: 0,
     reverbSend: 0.28,
-    useSoftClip: true,
+    useSoftClip: false,
   },
-  senseEp: {
-    id: "senseEp",
-    label: "Synth El. Piano",
-    description: "上品で透明感のあるエレピ寄り（バラード / アンビエント）",
-    // 基音 + 2 次中心、4 次以上控えめで透明感を出す
+  releaseCut: {
+    id: "releaseCut",
+    label: "リリースカットピアノ",
+    description: "ダンパーが早めに下りる短音ピアノ（スタッカート感）",
+    oscillators: naturalHarmonicOscillators(6, 0.15),
+    filterMode: "lowpass",
+    filterCutoffBass: 800,
+    filterCutoffTreble: 6000,
+    filterQ: 0.5,
+    trebleBrightnessDb: 0,
+    attack: 0.006,
+    decay: 0.1,
+    sustain: 0.45,
+    release: 0.04,
+    gainMultiplier: 1.1,
+    bassGainRatio: 1.18,
+    chorusDepth: 0,
+    reverbSend: 0.2,
+    useSoftClip: false,
+  },
+  electricPiano: {
+    id: "electricPiano",
+    label: "エレクトリックピアノ",
+    description: "Rhodes 風トレモロ付きエレクトリックピアノ",
     oscillators: [
       { type: "sine", ratio: 1, gain: 0.78 },
       { type: "triangle", ratio: 2, gain: 0.3 },
@@ -106,71 +117,45 @@ export const INSTRUMENT_PRESETS: Record<InstrumentId, InstrumentPreset> = {
     filterMode: "lowpass",
     filterCutoffBass: 720,
     filterCutoffTreble: 5000,
-    // 中域 1〜2kHz をわずかに凹ませる代わりに Q をやや上げ、上品な質感を作る
     filterQ: 0.65,
     trebleBrightnessDb: 2.5,
-    // アタックを柔らかく（タッチが優しい）
     attack: 0.015,
     decay: 0.12,
     sustain: 0.55,
     release: 0.12,
     gainMultiplier: 0.98,
     bassGainRatio: 1.2,
-    // コーラスは控えめ、リバーブセンドは最大で広い余韻
     chorusDepth: 0.5,
     reverbSend: 0.4,
     useSoftClip: true,
-  },
-  upright: {
-    id: "upright",
-    label: "Upright",
-    description: "暗くウォームなアップライト（ジャズ / ローファイ）",
-    // 高次倍音を弱め、低中域の厚みを残す
-    oscillators: [
-      { type: "sine", ratio: 1, gain: 0.72 },
-      { type: "triangle", ratio: 2, gain: 0.16 },
-      { type: "sine", ratio: 3, gain: 0.07 },
-      { type: "sine", ratio: 4, gain: 0.025 },
-    ],
-    filterMode: "lowpass",
-    filterCutoffBass: 620,
-    // 高域 LP を 3900Hz に下げ、Rush より明確に暗く
-    filterCutoffTreble: 3900,
-    filterQ: 0.7,
-    // 高域 shelf も僅か（暗めの基調を保つ）
-    trebleBrightnessDb: 1.5,
-    attack: 0.01,
-    // 長めの decay / release でウォームなアップライト感
-    decay: 0.2,
-    sustain: 0.48,
-    release: 0.18,
-    gainMultiplier: 1.06,
-    // 低中域（200〜500Hz）の厚みを足すためベース比率を高め
-    bassGainRatio: 1.35,
-    chorusDepth: 0.4,
-    // リバーブセンドは最少
-    reverbSend: 0.18,
-    useSoftClip: true,
+    tremoloHz: 4.5,
+    tremoloDepth: 0.15,
   },
 };
 
-export const INSTRUMENT_IDS: InstrumentId[] = ["rush", "senseEp", "upright"];
+export const INSTRUMENT_IDS: InstrumentId[] = [
+  "piano",
+  "releaseCut",
+  "electricPiano",
+];
 
 const LEGACY_ID_MAP: Record<string, InstrumentId> = {
-  lush: "rush",
-  rush: "rush",
-  synthEp: "senseEp",
-  senseEp: "senseEp",
-  upright: "upright",
-  grand: "rush",
-  rhodes: "rush",
-  wurli: "rush",
+  piano: "piano",
+  rush: "piano",
+  lush: "piano",
+  grand: "piano",
+  releaseCut: "releaseCut",
+  upright: "releaseCut",
+  electricPiano: "electricPiano",
+  senseEp: "electricPiano",
+  synthEp: "electricPiano",
+  rhodes: "electricPiano",
 };
 
 /** localStorage 等の旧 ID を現行3種へマップ */
 export function normalizeInstrumentId(value: string | undefined): InstrumentId {
-  if (!value) return "rush";
-  return LEGACY_ID_MAP[value] ?? "rush";
+  if (!value) return "piano";
+  return LEGACY_ID_MAP[value] ?? "piano";
 }
 
 export function getInstrumentPreset(id: InstrumentId): InstrumentPreset {
@@ -186,13 +171,16 @@ function spawnOscillator(
   startTime: number,
   stopAt: number,
   gainNode: GainNode,
-  trackNode: (node: StoppableNode) => void
+  trackNode: (node: StoppableNode) => void,
 ): void {
   const osc = ctx.createOscillator();
   const oscGain = ctx.createGain();
   osc.type = spec.type;
   const detune = spec.detuneCents ?? 0;
-  osc.frequency.setValueAtTime(freq * spec.ratio * centsToRatio(detune), startTime);
+  osc.frequency.setValueAtTime(
+    freq * spec.ratio * centsToRatio(detune),
+    startTime,
+  );
   oscGain.gain.setValueAtTime(spec.gain, startTime);
   osc.connect(oscGain);
   oscGain.connect(gainNode);
@@ -211,11 +199,13 @@ export function scheduleNoteVoice(
   connectReverb: ((node: AudioNode) => void) | null,
   isBass: boolean,
   gainScale: number,
-  trackNode: (node: StoppableNode) => void
+  trackNode: (node: StoppableNode) => void,
 ): void {
   const freq = 440 * Math.pow(2, (midi - 69) / 12);
   const { attack, decay, sustain, release } = preset;
-  const filterCutoff = isBass ? preset.filterCutoffBass : preset.filterCutoffTreble;
+  const filterCutoff = isBass
+    ? preset.filterCutoffBass
+    : preset.filterCutoffTreble;
 
   const gainNode = ctx.createGain();
   const filter = ctx.createBiquadFilter();
@@ -230,9 +220,12 @@ export function scheduleNoteVoice(
   gainNode.gain.linearRampToValueAtTime(maxGain, startTime + attack);
   gainNode.gain.exponentialRampToValueAtTime(
     Math.max(maxGain * sustain, 0.0001),
-    startTime + attack + decay
+    startTime + attack + decay,
   );
-  gainNode.gain.setValueAtTime(maxGain * sustain, startTime + duration - release);
+  gainNode.gain.setValueAtTime(
+    maxGain * sustain,
+    startTime + duration - release,
+  );
   gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
 
   const stopAt = startTime + duration + 0.2;
@@ -269,7 +262,7 @@ export function scheduleNoteVoice(
         startTime,
         stopAt,
         gainNode,
-        trackNode
+        trackNode,
       );
       spawnOscillator(
         ctx,
@@ -278,7 +271,7 @@ export function scheduleNoteVoice(
         startTime,
         stopAt,
         gainNode,
-        trackNode
+        trackNode,
       );
     }
   }
@@ -304,7 +297,7 @@ export function scheduleNoteVoice(
     chainEnd = shelf;
   }
 
-  // v2.6: ベース音には明示的に 80Hz HPF を入れて、共有マスター HPF と二段でモゴモゴを抑える
+  // ベース音には明示的に 80Hz HPF を入れてモゴモゴを抑える
   if (isBass) {
     const bassHpf = ctx.createBiquadFilter();
     bassHpf.type = "highpass";

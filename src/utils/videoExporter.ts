@@ -91,7 +91,10 @@ function buildFilename(mime: string): string {
   return `chord-palette-${stamp}.${pickExtension(mime)}`;
 }
 
-function clipPaletteToMaxBars(palette: PaletteChord[], maxBars: number): PaletteChord[] {
+function clipPaletteToMaxBars(
+  palette: PaletteChord[],
+  maxBars: number,
+): PaletteChord[] {
   // beats=2 を 1 小節相当として、合計が maxBars を超えたら切る
   let acc = 0;
   const out: PaletteChord[] = [];
@@ -110,7 +113,7 @@ function clipPaletteToMaxBars(palette: PaletteChord[], maxBars: number): Palette
  * 失敗時は reject。AbortError はユーザーキャンセル相当。
  */
 export async function exportProgressionVideo(
-  options: VideoExportOptions
+  options: VideoExportOptions,
 ): Promise<VideoExportResult> {
   if (!isVideoExportSupported()) {
     throw new Error("このブラウザは動画書き出しに対応していません");
@@ -126,16 +129,17 @@ export async function exportProgressionVideo(
     throw new Error("書き出すコードがありません");
   }
 
-  // v2.9 (Sprint 14): Rush 選択時はサンプラーのロード完了を待ってから書き出しを開始する。
+  // Piano 選択時はサンプラーのロード完了を待ってから書き出しを開始する。
   // 未起動なら trigger してから await。失敗時 (state === "error") は合成版で書き出し続行（無音禁止）。
-  if (options.instrumentId === "rush") {
+  if (options.instrumentId === "piano") {
     try {
-      // 何度呼んでも Singleton なので安全。Rush 選択直後に書き出しボタンを押すケースをカバー。
       void triggerRushSamplerLoad();
       await awaitRushSamplerIfLoading();
     } catch (err) {
-      // awaitRushSamplerIfLoading は本来 reject しないが、防御的に catch
-      console.warn("[videoExporter] Rush sampler load wait failed; continuing with synth", err);
+      console.warn(
+        "[videoExporter] Piano sampler load wait failed; continuing with synth",
+        err,
+      );
     }
   }
 
@@ -159,7 +163,9 @@ export async function exportProgressionVideo(
   } catch (err) {
     setExportingVideo(false);
     detachCaptureDestination();
-    throw err instanceof Error ? err : new Error("canvas.captureStream に失敗しました");
+    throw err instanceof Error
+      ? err
+      : new Error("canvas.captureStream に失敗しました");
   }
 
   // ビデオ + オーディオを合成
@@ -196,7 +202,9 @@ export async function exportProgressionVideo(
     setExportingVideo(false);
     detachCaptureDestination();
     videoStream.getTracks().forEach((t) => t.stop());
-    throw err instanceof Error ? err : new Error("MediaRecorder の生成に失敗しました");
+    throw err instanceof Error
+      ? err
+      : new Error("MediaRecorder の生成に失敗しました");
   }
 
   const chunks: Blob[] = [];
@@ -232,8 +240,9 @@ export async function exportProgressionVideo(
       } catch {
         /* ignore */
       }
-      const msg = (event as unknown as { error?: { message?: string } }).error?.message
-        ?? "動画の録画に失敗しました";
+      const msg =
+        (event as unknown as { error?: { message?: string } }).error?.message ??
+        "動画の録画に失敗しました";
       reject(new Error(msg));
     };
 
@@ -253,7 +262,11 @@ export async function exportProgressionVideo(
       recorder.start(250);
     } catch (err) {
       cleanup();
-      reject(err instanceof Error ? err : new Error("MediaRecorder.start に失敗しました"));
+      reject(
+        err instanceof Error
+          ? err
+          : new Error("MediaRecorder.start に失敗しました"),
+      );
       return;
     }
 
@@ -284,7 +297,7 @@ export async function exportProgressionVideo(
         renderState.currentIndex = idx;
         options.onTick?.(idx);
       },
-      { instrumentId: options.instrumentId, beatPattern: options.beatPattern }
+      { instrumentId: options.instrumentId, beatPattern: options.beatPattern },
     );
   });
 }

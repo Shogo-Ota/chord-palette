@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import type { PaletteChord } from "../utils/musicTheory";
-import { INSTRUMENT_IDS, INSTRUMENT_PRESETS, type InstrumentId } from "../utils/instrumentPresets";
+import {
+  INSTRUMENT_IDS,
+  INSTRUMENT_PRESETS,
+  type InstrumentId,
+} from "../utils/instrumentPresets";
 import type { BeatPattern, DrumPattern } from "../utils/audioEngine";
 import type { RushSamplerState } from "../utils/rushSampler";
 
@@ -128,7 +132,9 @@ export default function CompositionPalette({
             行1 = 時間軸（分割 / BPM）、行2 = 音色軸（Drum / Beat / Tone）、行3 = トランスポート */}
         <div className="playback-bar-row playback-bar-settings playback-bar-settings-time">
           <div className="playback-item playback-item--length">
-            <span className="playback-label" aria-hidden="true">LEN</span>
+            <span className="playback-label" aria-hidden="true">
+              LEN
+            </span>
             <button
               className={`btn-half-beat ${chordDurationMode !== "1" ? "active" : ""}`}
               onClick={onToggleDurationMode}
@@ -139,7 +145,9 @@ export default function CompositionPalette({
             </button>
           </div>
           <div className="playback-item playback-item--bpm">
-            <label className="playback-label" htmlFor="bpm-input">BPM</label>
+            <label className="playback-label" htmlFor="bpm-input">
+              BPM
+            </label>
             <input
               id="bpm-input"
               type="text"
@@ -154,12 +162,16 @@ export default function CompositionPalette({
         </div>
         <div className="playback-bar-row playback-bar-settings playback-bar-settings-tone">
           <div className="playback-item">
-            <label className="playback-label" htmlFor="drum-select">Drum</label>
+            <label className="playback-label" htmlFor="drum-select">
+              Drum
+            </label>
             <select
               id="drum-select"
               className="drum-select"
               value={drumPattern}
-              onChange={(e) => onDrumPatternChange(e.target.value as DrumPattern)}
+              onChange={(e) =>
+                onDrumPatternChange(e.target.value as DrumPattern)
+              }
             >
               <option value="none">---</option>
               <option value="rock">Rock</option>
@@ -170,12 +182,16 @@ export default function CompositionPalette({
             </select>
           </div>
           <div className="playback-item">
-            <label className="playback-label" htmlFor="beat-select">Beat</label>
+            <label className="playback-label" htmlFor="beat-select">
+              Beat
+            </label>
             <select
               id="beat-select"
               className="beat-select drum-select"
               value={beatPattern}
-              onChange={(e) => onBeatPatternChange(e.target.value as BeatPattern)}
+              onChange={(e) =>
+                onBeatPatternChange(e.target.value as BeatPattern)
+              }
             >
               <option value="none">---</option>
               <option value="4beat">4 Beat</option>
@@ -186,9 +202,8 @@ export default function CompositionPalette({
           <div className="playback-item">
             <label className="playback-label" htmlFor="tone-select">
               Tone
-              {/* v2.9 (Sprint 14): Rush サンプラーのロード状態を表示。
-                  Rush 選択中かつロード中／エラーのときのみ表示。 */}
-              {instrumentId === "rush" && rushSamplerState === "loading" && (
+              {/* Piano 選択中かつサンプラーロード中／エラーのときのみ表示。 */}
+              {instrumentId === "piano" && rushSamplerState === "loading" && (
                 <span
                   className="tone-loading-indicator"
                   aria-live="polite"
@@ -197,7 +212,7 @@ export default function CompositionPalette({
                   loading...
                 </span>
               )}
-              {instrumentId === "rush" && rushSamplerState === "error" && (
+              {instrumentId === "piano" && rushSamplerState === "error" && (
                 <span
                   className="tone-loading-indicator tone-loading-indicator--error"
                   aria-live="polite"
@@ -211,7 +226,9 @@ export default function CompositionPalette({
               id="tone-select"
               className="tone-select drum-select"
               value={instrumentId}
-              onChange={(e) => onInstrumentIdChange(e.target.value as InstrumentId)}
+              onChange={(e) =>
+                onInstrumentIdChange(e.target.value as InstrumentId)
+              }
               disabled={isExportingVideo}
             >
               {INSTRUMENT_IDS.map((id) => (
@@ -260,15 +277,21 @@ export default function CompositionPalette({
                   : "Pro 機能：MIDI 書き出し"
               }
               aria-label={
-                isProUser ? "MIDI 書き出し" : "Pro 機能：MIDI 書き出し（ロック中）"
+                isProUser
+                  ? "MIDI 書き出し"
+                  : "Pro 機能：MIDI 書き出し（ロック中）"
               }
             >
               {isProUser ? (
                 <>🎹</>
               ) : (
                 <>
-                  <span className="btn-midi-export-icon" aria-hidden="true">🎹</span>
-                  <span className="btn-midi-export-lock" aria-hidden="true">🔒</span>
+                  <span className="btn-midi-export-icon" aria-hidden="true">
+                    🎹
+                  </span>
+                  <span className="btn-midi-export-lock" aria-hidden="true">
+                    🔒
+                  </span>
                 </>
               )}
             </button>
@@ -315,60 +338,79 @@ export default function CompositionPalette({
         {palette.length === 0 ? (
           <div className="palette-empty-canvas">
             <p className="hint">{emptyHint}</p>
-            <span className="empty-hint-arrow" aria-hidden="true">↓</span>
+            <span className="empty-hint-arrow" aria-hidden="true">
+              ↓
+            </span>
           </div>
         ) : (
           <div className="palette-chords center">
             {(() => {
-              const segments: { key: string; chords: { chord: PaletteChord; originalIndex: number }[] }[] = [];
+              const segments: {
+                key: string;
+                chords: { chord: PaletteChord; originalIndex: number }[];
+              }[] = [];
               palette.forEach((chord, idx) => {
                 const currentKey = chord.key || "C";
-                if (segments.length === 0 || segments[segments.length - 1].key !== currentKey) {
+                if (
+                  segments.length === 0 ||
+                  segments[segments.length - 1].key !== currentKey
+                ) {
                   segments.push({ key: currentKey, chords: [] });
                 }
-                segments[segments.length - 1].chords.push({ chord, originalIndex: idx });
+                segments[segments.length - 1].chords.push({
+                  chord,
+                  originalIndex: idx,
+                });
               });
 
               return segments.map((segment, sIdx) => (
                 <div key={sIdx} className="palette-key-segment">
                   <div className="segment-key-label">Key: {segment.key}</div>
                   <div className="segment-chords">
-                    {segment.chords.map(({ chord, originalIndex: idx }, cIdx) => {
-                      const isHalf = chord.beats === 1;
-                      const isQuarter = chord.beats === 0.5;
-                      const isEditing = editingIndex === idx;
-                      const isActive = currentPlayingIndex === idx;
+                    {segment.chords.map(
+                      ({ chord, originalIndex: idx }, cIdx) => {
+                        const isHalf = chord.beats === 1;
+                        const isQuarter = chord.beats === 0.5;
+                        const isEditing = editingIndex === idx;
+                        const isActive = currentPlayingIndex === idx;
 
-                      return (
-                        <div key={idx} className="palette-item-wrapper">
-                          {cIdx > 0 && <span className="palette-arrow">→</span>}
-                          <div
-                            className={`palette-pill ${isHalf ? "half-beat" : ""} ${isQuarter ? "quarter-beat" : ""} ${FUNCTION_CLASSES[chord.function] || ""} ${!chord.isDiatonic ? "pill-nondiatonic" : ""} ${isEditing ? "editing" : ""} ${isActive ? "playing" : ""} ${isExportingVideo ? "locked" : ""}`}
-                            onClick={() => {
-                              if (isExportingVideo) return;
-                              onEditingIndexChange(idx);
-                            }}
-                          >
-                            <span className="pill-degree">{chord.label}</span>
-                            <span className="pill-name">{chord.displayName}</span>
-                            {!isExportingVideo && (
-                              <span
-                                className="pill-remove"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onRemove(idx);
-                                }}
-                                title="削除"
-                              >
-                                ✕
-                              </span>
+                        return (
+                          <div key={idx} className="palette-item-wrapper">
+                            {cIdx > 0 && (
+                              <span className="palette-arrow">→</span>
                             )}
+                            <div
+                              className={`palette-pill ${isHalf ? "half-beat" : ""} ${isQuarter ? "quarter-beat" : ""} ${FUNCTION_CLASSES[chord.function] || ""} ${!chord.isDiatonic ? "pill-nondiatonic" : ""} ${isEditing ? "editing" : ""} ${isActive ? "playing" : ""} ${isExportingVideo ? "locked" : ""}`}
+                              onClick={() => {
+                                if (isExportingVideo) return;
+                                onEditingIndexChange(idx);
+                              }}
+                            >
+                              <span className="pill-degree">{chord.label}</span>
+                              <span className="pill-name">
+                                {chord.displayName}
+                              </span>
+                              {!isExportingVideo && (
+                                <span
+                                  className="pill-remove"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onRemove(idx);
+                                  }}
+                                  title="削除"
+                                >
+                                  ✕
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      },
+                    )}
                   </div>
-                  {sIdx < segments.length - 1 && <span className="palette-arrow segment-arrow">→</span>}
+                  {sIdx < segments.length - 1 && (
+                    <span className="palette-arrow segment-arrow">→</span>
+                  )}
                 </div>
               ));
             })()}
@@ -390,9 +432,14 @@ export default function CompositionPalette({
                   onClick={() => onLoadFromHistory(idx)}
                   title="この進行で置き換え"
                 >
-                  <span className="history-number">#{history.length - idx}</span>
+                  <span className="history-number">
+                    #{history.length - idx}
+                  </span>
                   <span className="history-summary">
-                    {item.slice(0, 3).map((c) => c.displayName).join(" → ")}
+                    {item
+                      .slice(0, 3)
+                      .map((c) => c.displayName)
+                      .join(" → ")}
                     {item.length > 3 ? " …" : ""}
                   </span>
                 </button>

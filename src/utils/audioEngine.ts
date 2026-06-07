@@ -65,8 +65,8 @@ const MAX_RESUME_RETRIES = 3;
 
 let onAudioInterrupted: (() => void) | null = null;
 
-let defaultInstrumentId: InstrumentId = "rush";
-let sequenceInstrumentId: InstrumentId = "rush";
+let defaultInstrumentId: InstrumentId = "piano";
+let sequenceInstrumentId: InstrumentId = "piano";
 let sequenceUseVoiceLeading = true;
 
 /** UI の Tone 選択と同期（playChord のデフォルト音色） */
@@ -107,7 +107,8 @@ function getAudioContext(): AudioContext {
   if (!audioContext) {
     const AudioCtx =
       window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
 
     audioContext = new AudioCtx();
 
@@ -167,7 +168,10 @@ function getAudioContext(): AudioContext {
  * Rush サンプラーの destination を取得する（rushSampler.ts への DI 用）。
  * AudioContext が未初期化なら初期化してから返す。
  */
-export function getRushSamplerDestination(): { ctx: AudioContext; destination: GainNode } {
+export function getRushSamplerDestination(): {
+  ctx: AudioContext;
+  destination: GainNode;
+} {
   const ctx = getAudioContext();
   if (!rushSamplerOutput) {
     // getAudioContext 内で初期化済みのはず。万一のフォールバック。
@@ -232,7 +236,10 @@ export function installAudioLifecycleHandlers(): () => void {
     if (document.visibilityState === "hidden" && isPlaying) {
       stopPaletteSequenceInternal(false);
     }
-    if (document.visibilityState === "visible" && audioContext?.state === "suspended") {
+    if (
+      document.visibilityState === "visible" &&
+      audioContext?.state === "suspended"
+    ) {
       audioContext.resume().catch(() => {});
     }
   };
@@ -256,7 +263,7 @@ export async function playChord(
   chord: PaletteChord,
   durationSec: number = 0.8,
   time?: number,
-  options?: PlayChordOptions
+  options?: PlayChordOptions,
 ): Promise<void> {
   const ctx = getAudioContext();
 
@@ -277,12 +284,15 @@ export async function playChord(
   const bassMidi = Math.min(...notes);
   const gainScale = 1 / Math.sqrt(notes.length);
 
-  // v2.9 (Sprint 14): Rush 選択 + サンプラー ready のとき、サンプル発音に切り替える。
-  // ready でないときは既存合成版にフォールバック（無音禁止）。
-  if (instrumentId === "rush" && isRushSamplerReady()) {
+  // Piano 選択 + サンプラー ready のとき、Steinway D サンプル発音に切り替える。
+  // ready でないときは合成版にフォールバック（無音禁止）。
+  if (instrumentId === "piano" && isRushSamplerReady()) {
     // SplendidGrandPiano は MIDI ノート番号と velocity（0–127）で発音。
     // 合成版と同等の音量感になるよう velocity を控えめに設定（リミッターを叩きすぎない）。
-    const velocity = Math.max(40, Math.min(110, Math.round(90 * gainScale + 50)));
+    const velocity = Math.max(
+      40,
+      Math.min(110, Math.round(90 * gainScale + 50)),
+    );
     notes.forEach((note) => {
       scheduleRushSample(note, now, durationSec, velocity);
     });
@@ -303,7 +313,7 @@ export async function playChord(
       reverbInput ? (send) => send.connect(reverbInput) : null,
       isBass,
       gainScale,
-      trackNode
+      trackNode,
     );
   });
 }
@@ -314,7 +324,10 @@ export async function playChord(
 // → limiter のドラムバスに接続される。マスターチェーン（v2.6）には触らない。
 
 /** ホワイトノイズ AudioBuffer（指定秒数）。 */
-function createNoiseBuffer(ctx: AudioContext, durationSec: number): AudioBuffer {
+function createNoiseBuffer(
+  ctx: AudioContext,
+  durationSec: number,
+): AudioBuffer {
   const length = Math.max(1, Math.floor(ctx.sampleRate * durationSec));
   const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
   const data = buffer.getChannelData(0);
@@ -426,7 +439,7 @@ function playHiHatCore(
   ctx: AudioContext,
   time: number,
   decay: number,
-  velocity: number
+  velocity: number,
 ) {
   const t = clampScheduleTime(ctx, time);
   const base = 320;
@@ -819,7 +832,10 @@ function scheduler() {
     scheduleNote(current16thNote, nextNoteTime);
     nextNote();
 
-    if (currentChordIndex >= sequencePalette.length && current16thNote >= nextChordTick) {
+    if (
+      currentChordIndex >= sequencePalette.length &&
+      current16thNote >= nextChordTick
+    ) {
       if (sequenceIsLooping) {
         current16thNote = 0;
         currentChordIndex = 0;
@@ -876,7 +892,7 @@ export function playPaletteSequence(
   isLooping: boolean,
   onStop: () => void,
   onTick: (index: number) => void,
-  options?: PlayPaletteSequenceOptions
+  options?: PlayPaletteSequenceOptions,
 ): void {
   const ctx = getAudioContext();
   if (ctx.state === "suspended" || ctx.state === "interrupted") {
